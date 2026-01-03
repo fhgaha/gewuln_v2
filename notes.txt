@@ -1,0 +1,11 @@
+my_project/
+├── src/
+│   ├── core/       # Core game/data structures
+│   ├── render/     # Graphics-related code
+│   └── utils/      # Helper functions
+├── assets/         # Images, sounds
+├── build/          # Compiler output (add to .gitignore)
+└── main.odin       # Entry point, imports from src/
+
+
+breakout tutorial: https://github.com/karl-zylinski/breakout/tree/main
