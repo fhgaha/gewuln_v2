@@ -14,9 +14,9 @@ cam_mode: r.CameraMode
 main :: proc() {
 
 	//this raylib setup should be in top for some reason
-	r.SetTraceLogLevel(.ALL)
-	r.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
 	r.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "ogewuln")
+	r.SetTraceLogLevel(.ALL)
+	r.SetConfigFlags({.VSYNC_HINT})
 	r.SetTargetFPS(60)
 	r.DisableCursor()
 
@@ -27,7 +27,7 @@ main :: proc() {
 	//set up
 	cam := r.Camera3D {
 		position   = vec3{0, 10, 10},
-		target     = vec3{0, 0, 0},
+		target     = vec3{0, 1, 0},
 		up         = vec3{0, 1, 0},
 		fovy       = FOV_DEG / 2,
 		projection = .PERSPECTIVE,
@@ -38,9 +38,14 @@ main :: proc() {
 
 
 	//model
-	// model_path: cstring = "assets/models/mona_sax/export/test/mona.glb"
-	model_path: cstring = "assets/models/robot/robot.glb"
+	model_path: cstring = "assets/models/mona_sax/export/test/mona.glb"
+	// model_path: cstring = "assets/models/robot/robot.glb"
 	model: r.Model = r.LoadModel(model_path)
+	if r.IsModelValid(model){
+		fmt.println("--valid")
+	}else {
+		fmt.println("--not valid")
+	}
 	model_pos := vec3{0, 0, 0}
 	anims_count: i32 = 0
 	anim_idx: i32 = 0
@@ -67,12 +72,12 @@ main :: proc() {
 
 			r.BeginMode3D(cam)
 			{
-				// r.DrawModel(mona, mona_pos, 1, r.WHITE)
 				r.DrawModel(model, model_pos, 1, r.WHITE)
+				r.DrawModelWires(model, model_pos, 1, r.WHITE)
 
 				r.UpdateCamera(&cam, cam_mode)
-				r.DrawCube(position = cube_pos, width = 2, height = 2, length = 2, color = r.RED)
-				r.DrawCubeWires(cube_pos, 2, 2, 2, r.RAYWHITE)
+				// r.DrawCube(position = cube_pos, width = 2, height = 2, length = 2, color = r.RED)
+				// r.DrawCubeWires(cube_pos, 2, 2, 2, r.RAYWHITE)
 				r.DrawGrid(slices = 10, spacing = 1)
 			}
 			r.EndMode3D()
