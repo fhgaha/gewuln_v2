@@ -1,0 +1,72 @@
+# Blender 4.1.0 MTL File: 'mona.blend'
+# www.blender.org
+
+newmtl Body_Texture
+Ns 62.500000
+Ka 1.000000 1.000000 1.000000
+Ks 0.898039 0.898039 0.898039
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd MonaSax_Body_B_01.png
+map_d MonaSax_Body_B_01.png
+
+newmtl Eyes
+Ns 15.625000
+Ka 1.000000 1.000000 1.000000
+Ks 0.501961 0.501961 0.501961
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd MonaSax_Face.png
+map_d MonaSax_Face.png
+
+newmtl Face
+Ns 15.625000
+Ka 1.000000 1.000000 1.000000
+Ks 0.501961 0.501961 0.501961
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd MonaSax_Face.png
+
+newmtl Hands
+Ns 15.625000
+Ka 1.000000 1.000000 1.000000
+Ks 0.501961 0.501961 0.501961
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd Hand_Female_Glove.png
+map_d Hand_Female_Glove.png
+
+newmtl Legs_Texture
+Ns 62.500000
+Ka 1.000000 1.000000 1.000000
+Ks 0.898039 0.898039 0.898039
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd MonaSax_Legs_A_01.png
+map_d MonaSax_Legs_A_01.png
+
+newmtl Skin
+Ns 62.500000
+Ka 1.000000 1.000000 1.000000
+Ks 0.898039 0.898039 0.898039
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd MonaSax_Body_B_01.png
+
+newmtl eyelash
+Ns 62.500000
+Ka 1.000000 1.000000 1.000000
+Ks 0.898039 0.898039 0.898039
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd Eyelash_Female_01.png
+map_d Eyelash_Female_01.png

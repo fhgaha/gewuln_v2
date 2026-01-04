@@ -1,0 +1,72 @@
+# Blender 4.3.2 MTL File: 'mona.blend'
+# www.blender.org
+
+newmtl Body_Texturemat.001
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/MonaSax_Body_B_01.png
+map_d C:/MonaSax_Body_B_01.png
+
+newmtl Eyesmat.001
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/MonaSax_Face.png
+map_d C:/MonaSax_Face.png
+
+newmtl Facemat.001
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/MonaSax_Face.png
+map_d C:/MonaSax_Face.png
+
+newmtl Handsmat.001
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Hand_Female_Glove.png
+map_d C:/Hand_Female_Glove.png
+
+newmtl Legs_Texturemat.001
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/MonaSax_Legs_A_01.png
+map_d C:/MonaSax_Legs_A_01.png
+
+newmtl Skinmat.001
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/MonaSax_Body_B_01.png
+map_d C:/MonaSax_Body_B_01.png
+
+newmtl eyelashmat.001
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.000000 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 3

@@ -1,14 +1,14 @@
 @echo off
 cls
 
-odin build . -out:bin/main.exe
+odin build . -out:bin/ogewuln.exe -debug
 
 if ERRORLEVEL 1 (
-	@REM echo --compile:fail
+	echo --compile:fail
 	exit /B 1
 )
-@REM echo --compile:success
+echo --compile:success
 
-call "bin/main.exe"
+call "bin/ogewuln.exe"
 
 exit /B 0
