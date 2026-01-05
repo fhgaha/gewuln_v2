@@ -23,7 +23,6 @@ main :: proc() {
 	font: r.Font = r.LoadFont("assets/centurygothic/centurygothic_bold.ttf")
 	r.SetTextureFilter(font.texture, .BILINEAR)
 
-
 	//set up
 	cam = r.Camera3D {
 		position   = vec3{0, 10, 10},
@@ -34,18 +33,9 @@ main :: proc() {
 	}
 	cam_mode = r.CameraMode.THIRD_PERSON
 
-	cube_pos := vec3{0, 0, 0}
-
-
 	//model
-	model_path: cstring = "assets/models/mona_sax/export/test/mona.glb"
-	// model_path: cstring = "assets/models/robot/robot.glb"
+	model_path: cstring = "assets/models/mona_sax/export/glb/mona.glb"
 	model: r.Model = r.LoadModel(model_path)
-	if r.IsModelValid(model) {
-		fmt.println("--valid")
-	} else {
-		fmt.println("--not valid")
-	}
 	model_pos := vec3{0, 0, 0}
 	anims_count: i32 = 0
 	anim_idx: i32 = 0
@@ -74,8 +64,13 @@ main :: proc() {
 
 			r.BeginMode3D(cam)
 			{
-				// r.DrawCube(position = cube_pos, width = 2, height = 2, length = 2, color = r.RED)
-				// r.DrawCubeWires(cube_pos, 2, 2, 2, r.RAYWHITE)
+				r.DrawCubeWires(
+					position = vec3{0, 0.5, 0},
+					width = 1,
+					height = 1,
+					length = 1,
+					color = r.RED,
+				)
 				r.DrawModel(model, model_pos, 1, r.WHITE)
 				// r.DrawModelWires(model, model_pos, 1, r.GREEN)
 				// r.DrawBoundingBox(r.GetModelBoundingBox(model), r.RED)
@@ -112,6 +107,6 @@ draw_gizmo :: proc() {
 	r.DrawLine3D(vec3{0, 0, 0}, vec3{0, 0, 1} * dist, r.BLUE)
 }
 
-foo :: proc(){
+foo :: proc() {
 	fmt.println("test")
 }
