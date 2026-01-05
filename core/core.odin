@@ -25,7 +25,7 @@ main :: proc() {
 
 
 	//set up
-	cam := r.Camera3D {
+	cam = r.Camera3D {
 		position   = vec3{0, 10, 10},
 		target     = vec3{0, 1, 0},
 		up         = vec3{0, 1, 0},
@@ -41,9 +41,9 @@ main :: proc() {
 	model_path: cstring = "assets/models/mona_sax/export/test/mona.glb"
 	// model_path: cstring = "assets/models/robot/robot.glb"
 	model: r.Model = r.LoadModel(model_path)
-	if r.IsModelValid(model){
+	if r.IsModelValid(model) {
 		fmt.println("--valid")
-	}else {
+	} else {
 		fmt.println("--not valid")
 	}
 	model_pos := vec3{0, 0, 0}
@@ -66,19 +66,22 @@ main :: proc() {
 		anim_cur_frame = (anim_cur_frame + 1) % anim.frameCount
 		r.UpdateModelAnimation(model, anim, anim_cur_frame)
 
+		r.UpdateCamera(&cam, cam_mode)
+
 		r.BeginDrawing()
 		{
 			r.ClearBackground(DARK)
 
 			r.BeginMode3D(cam)
 			{
-				r.DrawModel(model, model_pos, 1, r.WHITE)
-				r.DrawModelWires(model, model_pos, 1, r.WHITE)
-
-				r.UpdateCamera(&cam, cam_mode)
 				// r.DrawCube(position = cube_pos, width = 2, height = 2, length = 2, color = r.RED)
 				// r.DrawCubeWires(cube_pos, 2, 2, 2, r.RAYWHITE)
+				r.DrawModel(model, model_pos, 1, r.WHITE)
+				// r.DrawModelWires(model, model_pos, 1, r.GREEN)
+				// r.DrawBoundingBox(r.GetModelBoundingBox(model), r.RED)
+
 				r.DrawGrid(slices = 10, spacing = 1)
+				draw_gizmo()
 			}
 			r.EndMode3D()
 
@@ -99,4 +102,16 @@ main :: proc() {
 
 	r.UnloadFont(font)
 	r.CloseWindow()
+}
+
+
+draw_gizmo :: proc() {
+	dist := r.Vector3Distance(cam.position, vec3{0, 0, 0})
+	r.DrawLine3D(vec3{0, 0, 0}, vec3{1, 0, 0} * dist, r.RED)
+	r.DrawLine3D(vec3{0, 0, 0}, vec3{0, 1, 0} * dist, r.GREEN)
+	r.DrawLine3D(vec3{0, 0, 0}, vec3{0, 0, 1} * dist, r.BLUE)
+}
+
+foo :: proc(){
+	fmt.println("test")
 }
