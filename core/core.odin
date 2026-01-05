@@ -36,12 +36,20 @@ main :: proc() {
 	//model
 	model_path: cstring = "assets/models/mona_sax/export/glb/mona.glb"
 	model: r.Model = r.LoadModel(model_path)
+
+	// for t in model.materials {
+	// 	fmt.println("--", t);
+	// }
+
 	model_pos := vec3{0, 0, 0}
 	anims_count: i32 = 0
 	anim_idx: i32 = 0
 	anim_cur_frame: i32 = 0
 	model_animations := r.LoadModelAnimations(model_path, &anims_count)
 
+	tex := r.LoadTexture("assets/models/mona_sax/textures_png/Eyelash_Female_01.png")
+	tex.height *= 2
+	tex.width *= 2
 
 	for !r.WindowShouldClose() {
 		//update
@@ -64,6 +72,9 @@ main :: proc() {
 
 			r.BeginMode3D(cam)
 			{
+				r.DrawModel(model, model_pos, 1, r.WHITE)
+				// r.DrawModelWires(model, model_pos, 1, r.GREEN)
+				// r.DrawBoundingBox(r.GetModelBoundingBox(model), r.RED)
 				r.DrawCubeWires(
 					position = vec3{0, 0.5, 0},
 					width = 1,
@@ -71,14 +82,13 @@ main :: proc() {
 					length = 1,
 					color = r.RED,
 				)
-				r.DrawModel(model, model_pos, 1, r.WHITE)
-				// r.DrawModelWires(model, model_pos, 1, r.GREEN)
-				// r.DrawBoundingBox(r.GetModelBoundingBox(model), r.RED)
 
 				r.DrawGrid(slices = 10, spacing = 1)
 				draw_gizmo()
 			}
 			r.EndMode3D()
+
+			r.DrawTexture(tex, 100, 0, r.WHITE)
 
 			r.DrawTextEx(
 				font,

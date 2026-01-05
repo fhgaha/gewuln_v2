@@ -1,11 +1,25 @@
-my_project/
-├── src/
-│   ├── core/       # Core game/data structures
-│   ├── render/     # Graphics-related code
-│   └── utils/      # Helper functions
-├── assets/         # Images, sounds
-├── build/          # Compiler output (add to .gitignore)
-└── main.odin       # Entry point, imports from src/
+--recommended structure
+	my_project/
+	├── src/
+	│   ├── core/       # Core game/data structures
+	│   ├── render/     # Graphics-related code
+	│   └── utils/      # Helper functions
+	├── assets/         # Images, sounds
+	├── build/          # Compiler output (add to .gitignore)
+	└── main.odin       # Entry point, imports from src/
 
 
-breakout tutorial: https://github.com/karl-zylinski/breakout/tree/main
+--breakout tutorial: https://github.com/karl-zylinski/breakout/tree/main
+
+--importing glb:
+*   RAYLIB LIMITATIONS:
+*     - Only supports 1 armature per file, and skips loading it if there are multiple armatures
+*     - Only supports linear interpolation (default method in Blender when checked
+*       "Always Sample Animations" when exporting a GLTF file)
+*     - Only supports translation/rotation/scale animation channel.path,
+*       weights not considered (i.e. morph targets)
+	
+	To export transparent textures on a glb model:
+	Use Principled BSDF: Connect the alpha output of an image texture to the alpha input 
+	of the Principled BSDF shader.
+
