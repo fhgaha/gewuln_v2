@@ -34,31 +34,25 @@ main :: proc() {
 	cam_mode = r.CameraMode.THIRD_PERSON
 
 	//model
+	// model_path: cstring = "assets/models/robot/robot.glb"
 	model_path: cstring = "assets/models/mona_sax/export/glb/mona.glb"
 	model: r.Model = r.LoadModel(model_path)
-
-	// for t in model.materials {
-	// 	fmt.println("--", t);
-	// }
-
 	model_pos := vec3{0, 0, 0}
+
 	anims_count: i32 = 0
 	anim_idx: i32 = 0
 	anim_cur_frame: i32 = 0
 	model_animations := r.LoadModelAnimations(model_path, &anims_count)
 
-	tex := r.LoadTexture("assets/models/mona_sax/textures_png/Eyelash_Female_01.png")
-	tex.height *= 2
-	tex.width *= 2
 
 	for !r.WindowShouldClose() {
 		//update
-
-		// if r.IsMouseButtonPressed(.RIGHT) {
-		// 	anim_idx = (anim_idx + 1) % anims_count
-		// } else if r.IsMouseButtonPressed(.LEFT) {
-		// 	anim_idx = (anim_idx + anims_count - 1) % anims_count
-		// }
+	
+		if r.IsMouseButtonPressed(.RIGHT) {
+			anim_idx = (anim_idx + 1) % anims_count
+		} else if r.IsMouseButtonPressed(.LEFT) {
+			anim_idx = (anim_idx + anims_count - 1) % anims_count
+		}
 
 		anim := model_animations[anim_idx]
 		anim_cur_frame = (anim_cur_frame + 1) % anim.frameCount
@@ -75,20 +69,18 @@ main :: proc() {
 				r.DrawModel(model, model_pos, 1, r.WHITE)
 				// r.DrawModelWires(model, model_pos, 1, r.GREEN)
 				// r.DrawBoundingBox(r.GetModelBoundingBox(model), r.RED)
-				r.DrawCubeWires(
-					position = vec3{0, 0.5, 0},
-					width = 1,
-					height = 1,
-					length = 1,
-					color = r.RED,
-				)
+				// r.DrawCubeWires(
+				// 	position = vec3{0, 0.5, 0},
+				// 	width = 1,
+				// 	height = 1,
+				// 	length = 1,
+				// 	color = r.RED,
+				// )
 
 				r.DrawGrid(slices = 10, spacing = 1)
 				draw_gizmo()
 			}
 			r.EndMode3D()
-
-			r.DrawTexture(tex, 100, 0, r.WHITE)
 
 			r.DrawTextEx(
 				font,
