@@ -1,6 +1,7 @@
 package core
 
 import "core:fmt"
+import "core:strconv"
 import r "vendor:raylib"
 
 VIRTUAL_SCREEN_WIDTH :: 160
@@ -43,14 +44,17 @@ main :: proc() {
 	anim_idx: i32 = 0
 	anim_cur_frame: i32 = 0
 	model_animations := r.LoadModelAnimations(model_path, &anims_count)
-
+	
+	collider_path : cstring = "assets/models/mona_sax/export/glb/collider.glb"
+	collider:= r.LoadModel(collider_path)
 
 	for !r.WindowShouldClose() {
 		//update
-	
-		if r.IsMouseButtonPressed(.RIGHT) {
+
+		switch {
+		case r.IsMouseButtonPressed(.RIGHT):
 			anim_idx = (anim_idx + 1) % anims_count
-		} else if r.IsMouseButtonPressed(.LEFT) {
+		case r.IsMouseButtonPressed(.LEFT):
 			anim_idx = (anim_idx + anims_count - 1) % anims_count
 		}
 
@@ -67,16 +71,8 @@ main :: proc() {
 			r.BeginMode3D(cam)
 			{
 				r.DrawModel(model, model_pos, 1, r.WHITE)
-				// r.DrawModelWires(model, model_pos, 1, r.GREEN)
-				// r.DrawBoundingBox(r.GetModelBoundingBox(model), r.RED)
-				// r.DrawCubeWires(
-				// 	position = vec3{0, 0.5, 0},
-				// 	width = 1,
-				// 	height = 1,
-				// 	length = 1,
-				// 	color = r.RED,
-				// )
-
+				r.DrawModelWires(collider, model_pos, 1, r.WHITE)
+				
 				r.DrawGrid(slices = 10, spacing = 1)
 				draw_gizmo()
 			}
