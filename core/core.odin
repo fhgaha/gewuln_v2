@@ -2,6 +2,7 @@ package core
 
 import "core:fmt"
 import "core:strconv"
+import "core:strings"
 import r "vendor:raylib"
 
 Cam_Follow :: struct {
@@ -18,7 +19,7 @@ font: r.Font
 cam: r.Camera3D
 cam_mode: r.CameraMode
 
-Model :: struct {
+Actor :: struct {
 	model:          r.Model,
 	pos:            vec3,
 	bounding_box:   r.BoundingBox,
@@ -39,8 +40,9 @@ main :: proc() {
 	r.SetTargetFPS(60)
 	r.DisableCursor()
 
-	font = r.LoadFont("assets/centurygothic/centurygothic_bold.ttf")
+	font = r.LoadFont("assets/fonts/centurygothic/centurygothic_bold.ttf")
 	r.SetTextureFilter(font.texture, .BILINEAR)
+	defer r.UnloadFont(font)
 
 	//set up
 	cam = r.Camera3D {
@@ -50,36 +52,47 @@ main :: proc() {
 		fovy       = FOV_DEG / 2,
 		projection = .PERSPECTIVE,
 	}
-	cam_mode = r.CameraMode.CUSTOM
+	cam_mode = r.CameraMode.FREE
 
-	//model
+	//actor
 	// model_path: cstring = "assets/models/robot/robot.glb"
-
-	model_path: cstring = "assets/models/mona_sax/export/glb/mona.glb"
+	actor_path: cstring = "assets/models/mona_sax/export/glb/mona.glb"
 	collider_path: cstring = "assets/models/mona_sax/export/glb/collider.glb"
-	anims_count: i32 = 0
-	model := Model {
-		model          = r.LoadModel(model_path),
+	actor := Actor {
+		model          = r.LoadModel(actor_path),
 		pos            = vec3{0, 0, 0},
 		bounding_box   = r.GetModelBoundingBox(r.LoadModel(collider_path)),
 		direction      = vec3{0, 0, -1},
 		anims_count    = 0,
 		anim_idx       = 0,
 		anim_cur_frame = 0,
-		anims          = r.LoadModelAnimations(model_path, &anims_count),
 	}
+	actor.anims = r.LoadModelAnimations(actor_path, &actor.anims_count)
+	defer r.UnloadModelAnimations(actor.anims, actor.anims_count)
+	defer r.UnloadModel(actor.model)
+
+	//room
+	room_path: cstring = "assets/models/test_rooms/export/test_floor/gltf_4_two_interactables_one_with_center_below_another_with_center_above/test_rooms.gltf"
+	room := r.LoadModel(room_path)
+	defer r.UnloadModel(room)
+
+	// for &a in model.anims[:model.anims_count] {
+	// 	str := string(a.name[:])
+	// 	fmt.println("++ ", str)
+	// }
+
 
 	for !r.WindowShouldClose() {
 		//update
 
-		// switch {
-		// case r.IsMouseButtonPressed(.RIGHT):
-		// 	anim_idx = (anim_idx + 1) % anims_count
-		// case r.IsMouseButtonPressed(.LEFT):
-		// 	anim_idx = (anim_idx + anims_count - 1) % anims_count
-		// }
+		switch {
+		case r.IsMouseButtonPressed(.RIGHT):
+			actor.anim_idx = (actor.anim_idx + 1) % actor.anims_count
+		case r.IsMouseButtonPressed(.LEFT):
+			actor.anim_idx = (actor.anim_idx + actor.anims_count - 1) % actor.anims_count
+		}
 
-		update_model_anim(&model)
+		update_model_anim(&actor)
 
 		r.UpdateCamera(&cam, cam_mode)
 
@@ -89,10 +102,12 @@ main :: proc() {
 
 			r.BeginMode3D(cam)
 			{
-				r.DrawModel(model.model, model.pos, 1, r.WHITE)
-				r.DrawModelWires(model.model, model.pos, 1, r.WHITE)
+				r.DrawModel(room, vec3{0, 0, 0}, 1, r.WHITE)
+				r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
+				r.DrawModelWires(actor.model, actor.pos, 1, r.WHITE)
+				r.DrawBoundingBox(actor.bounding_box, r.MAGENTA)
 
-				r.DrawGrid(slices = 10, spacing = 1)
+				// r.DrawGrid(slices = 10, spacing = 1)
 				draw_gizmo()
 			}
 			r.EndMode3D()
@@ -104,9 +119,6 @@ main :: proc() {
 		free_all(context.temp_allocator)
 	}
 
-	r.UnloadModelAnimations(model.anims, model.anims_count)
-	r.UnloadModel(model.model)
-	r.UnloadFont(font)
 
 	r.CloseWindow()
 }
@@ -115,10 +127,10 @@ main :: proc() {
 
 // }
 
-update_model_anim :: proc(m: ^Model) {
-	anim := m.anims[m.anim_idx]
-	m.anim_cur_frame = (m.anim_cur_frame + 1) % anim.frameCount
-	r.UpdateModelAnimation(m.model, anim, m.anim_cur_frame)
+update_model_anim :: proc(actor: ^Actor) {
+	anim := actor.anims[actor.anim_idx]
+	actor.anim_cur_frame = (actor.anim_cur_frame + 1) % anim.frameCount
+	r.UpdateModelAnimation(actor.model, anim, actor.anim_cur_frame)
 }
 
 
