@@ -1,14 +1,6 @@
 package core
 
-import "core:fmt"
-import "core:strconv"
-import "core:strings"
 import r "vendor:raylib"
-
-Cam_Follow :: struct {
-	cam:    r.Camera3D,
-	target: vec3,
-}
 
 VIRTUAL_SCREEN_WIDTH :: 160
 VIRTUAL_SCREEN_HEIGHT :: 90
@@ -57,40 +49,47 @@ main :: proc() {
 	//actor
 	// model_path: cstring = "assets/models/robot/robot.glb"
 	actor_path: cstring = "assets/models/mona_sax/export/glb/mona.glb"
-	collider_path: cstring = "assets/models/mona_sax/export/glb/collider.glb"
+	actor_coll_path: cstring = "assets/models/mona_sax/export/glb/collider.glb"
+	actor_coll_model := r.LoadModel(actor_coll_path)
+	defer r.UnloadModel(actor_coll_model)
+
 	actor := Actor {
 		model          = r.LoadModel(actor_path),
 		pos            = vec3{0, 0, 0},
-		bounding_box   = r.GetModelBoundingBox(r.LoadModel(collider_path)),
+		//todo does model in the case below needs to be unloaded manually?
+		bounding_box   = r.GetModelBoundingBox(actor_coll_model),
 		direction      = vec3{0, 0, -1},
 		anims_count    = 0,
 		anim_idx       = 0,
 		anim_cur_frame = 0,
 	}
 	actor.anims = r.LoadModelAnimations(actor_path, &actor.anims_count)
+	assert(actor.anims_count > 0, "Actor should have at least one animation")
 	defer r.UnloadModelAnimations(actor.anims, actor.anims_count)
 	defer r.UnloadModel(actor.model)
 
+
 	//room
-	room_path: cstring = "assets/models/test_rooms/export/test_floor/gltf_4_two_interactables_one_with_center_below_another_with_center_above/test_rooms.gltf"
+	room_path: cstring = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
 	room := r.LoadModel(room_path)
 	defer r.UnloadModel(room)
 
-	// for &a in model.anims[:model.anims_count] {
-	// 	str := string(a.name[:])
-	// 	fmt.println("++ ", str)
-	// }
+	walk_area_path: cstring = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
+	walk_area_model := r.LoadModel(walk_area_path)
+	walk_area_bb: r.BoundingBox = r.GetModelBoundingBox(walk_area_model)
+	defer r.UnloadModel(walk_area_model)
 
 
 	for !r.WindowShouldClose() {
 		//update
 
 		switch {
-		case r.IsMouseButtonPressed(.RIGHT):
+		case r.IsKeyPressed(.ONE):
 			actor.anim_idx = (actor.anim_idx + 1) % actor.anims_count
-		case r.IsMouseButtonPressed(.LEFT):
+		case r.IsKeyPressed(.TWO):
 			actor.anim_idx = (actor.anim_idx + actor.anims_count - 1) % actor.anims_count
 		}
+
 
 		update_model_anim(&actor)
 
@@ -102,7 +101,8 @@ main :: proc() {
 
 			r.BeginMode3D(cam)
 			{
-				r.DrawModel(room, vec3{0, 0, 0}, 1, r.WHITE)
+				r.DrawModel(room, vec3{0, 0, 0}, 1, r.GRAY)
+				r.DrawModelWires(walk_area_model, vec3{0, 0, 0}, 1, r.ORANGE)
 				r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
 				r.DrawModelWires(actor.model, actor.pos, 1, r.WHITE)
 				r.DrawBoundingBox(actor.bounding_box, r.MAGENTA)
