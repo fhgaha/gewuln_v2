@@ -2,31 +2,19 @@ package core
 
 import r "vendor:raylib"
 
-VIRTUAL_SCREEN_WIDTH :: 160
-VIRTUAL_SCREEN_HEIGHT :: 90
-
-VIRTUAL_RATIO :: f32(SCREEN_WIDTH) / f32(VIRTUAL_SCREEN_WIDTH)
-
 font: r.Font
 cam: r.Camera3D
 cam_mode: r.CameraMode
 
-Actor :: struct {
-	model:          r.Model,
-	pos:            vec3,
-	bounding_box:   r.BoundingBox,
-	direction:      vec3,
-	//animations
-	anims_count:    i32,
-	anim_idx:       i32,
-	anim_cur_frame: i32,
-	anims:          [^]r.ModelAnimation,
-}
+small_resolution := false
+
+room: r.Model
+actor: Actor
+walk_area_model: r.Model
 
 main :: proc() {
-
 	//this raylib setup should be in top for some reason
-	r.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "ogewuln")
+	r.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "ogewuln")
 	r.SetTraceLogLevel(.ALL)
 	r.SetConfigFlags({.VSYNC_HINT})
 	r.SetTargetFPS(60)
@@ -53,7 +41,7 @@ main :: proc() {
 	actor_coll_model := r.LoadModel(actor_coll_path)
 	defer r.UnloadModel(actor_coll_model)
 
-	actor := Actor {
+	actor = Actor {
 		model          = r.LoadModel(actor_path),
 		pos            = vec3{0, 0, 0},
 		//todo does model in the case below needs to be unloaded manually?
@@ -71,18 +59,20 @@ main :: proc() {
 
 	//room
 	room_path: cstring = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
-	room := r.LoadModel(room_path)
+	room = r.LoadModel(room_path)
 	defer r.UnloadModel(room)
 
 	walk_area_path: cstring = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
-	walk_area_model := r.LoadModel(walk_area_path)
+	walk_area_model = r.LoadModel(walk_area_path)
 	walk_area_bb: r.BoundingBox = r.GetModelBoundingBox(walk_area_model)
 	defer r.UnloadModel(walk_area_model)
 
+	target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
+	defer r.UnloadRenderTexture(target)
+
 
 	for !r.WindowShouldClose() {
-		//update
-
+		//input
 		switch {
 		case r.IsKeyPressed(.ONE):
 			actor.anim_idx = (actor.anim_idx + 1) % actor.anims_count
@@ -90,29 +80,37 @@ main :: proc() {
 			actor.anim_idx = (actor.anim_idx + actor.anims_count - 1) % actor.anims_count
 		}
 
-
+		//update
 		update_model_anim(&actor)
-
 		r.UpdateCamera(&cam, cam_mode)
+
 
 		r.BeginDrawing()
 		{
 			r.ClearBackground(DARK)
 
-			r.BeginMode3D(cam)
-			{
-				r.DrawModel(room, vec3{0, 0, 0}, 1, r.GRAY)
-				r.DrawModelWires(walk_area_model, vec3{0, 0, 0}, 1, r.ORANGE)
-				r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
-				r.DrawModelWires(actor.model, actor.pos, 1, r.WHITE)
-				r.DrawBoundingBox(actor.bounding_box, r.MAGENTA)
+			switch small_resolution {
+			case true:
+				r.BeginTextureMode(target)
+				{
+					render_3d_scene()
+				}
+				r.EndTextureMode()
 
-				// r.DrawGrid(slices = 10, spacing = 1)
-				draw_gizmo()
+				r.DrawTexturePro(
+					texture = target.texture,
+					source = r.Rectangle{0, 0, RENDER_WIDTH, -RENDER_HEIGHT},
+					dest = r.Rectangle{0, 0, WINDOW_WIDTH, WINDOW_HEIGHT},
+					origin = vec2{0, 0},
+					rotation = 0,
+					tint = r.WHITE,
+				)
+			case false:
+				render_3d_scene()
 			}
-			r.EndMode3D()
 
 			draw_fps()
+
 		}
 		r.EndDrawing()
 
@@ -127,10 +125,29 @@ main :: proc() {
 
 // }
 
+
 update_model_anim :: proc(actor: ^Actor) {
 	anim := actor.anims[actor.anim_idx]
 	actor.anim_cur_frame = (actor.anim_cur_frame + 1) % anim.frameCount
 	r.UpdateModelAnimation(actor.model, anim, actor.anim_cur_frame)
+}
+
+
+render_3d_scene :: proc() {
+	r.ClearBackground(DARK)
+
+	r.BeginMode3D(cam)
+	{
+		r.DrawModel(room, vec3{0, 0, 0}, 1, r.GRAY)
+		r.DrawModelWires(walk_area_model, vec3{0, 0, 0}, 1, r.ORANGE)
+		r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
+		r.DrawModelWires(actor.model, actor.pos, 1, r.WHITE)
+		r.DrawBoundingBox(actor.bounding_box, r.MAGENTA)
+
+		// r.DrawGrid(slices = 10, spacing = 1)
+		draw_gizmo()
+	}
+	r.EndMode3D()
 }
 
 

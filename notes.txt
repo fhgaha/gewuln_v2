@@ -23,3 +23,4 @@
 	Use Principled BSDF: Connect the alpha output of an image texture to the alpha input 
 	of the Principled BSDF shader.
 
+--blener fast export glb: F4->e->l
