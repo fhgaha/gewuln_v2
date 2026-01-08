@@ -1,6 +1,9 @@
 package core
 
+import "core:fmt"
 import "core:math"
+import "core:strings"
+import "core:unicode/utf8"
 import r "vendor:raylib"
 
 font: r.Font
@@ -49,11 +52,19 @@ main :: proc() {
 		rot_speed    = 4,
 		model        = actor_model,
 		bounding_box = r.GetModelBoundingBox(actor_coll_model),
+		anims_names  = make(map[string]i32),
 	}
 	actor.anims = r.LoadModelAnimations(actor_path, &actor.anims_count)
 	assert(actor.anims_count > 0, "Actor should have at least one animation")
 	defer r.UnloadModelAnimations(actor.anims, actor.anims_count)
 	defer r.UnloadModel(actor.model)
+
+	for &a, i in actor.anims[:actor.anims_count] {
+		name_cstr := cstring(&a.name[0])
+		name_str := string(name_cstr)
+		actor.anims_names[name_str] = i32(i)
+		fmt.println("+++ ", name_str, ": ", actor.anims_names[name_str])
+	}
 
 
 	//room
@@ -84,21 +95,31 @@ main :: proc() {
 		}
 
 		//movement
+		move_key_pressed := false
+		if r.IsKeyDown(.A) {
+			actor.model.transform *= r.MatrixRotateY(actor.rot_speed * r.DEG2RAD)
+			move_key_pressed = true
+		}
+		if r.IsKeyDown(.D) {
+			actor.model.transform *= r.MatrixRotateY(-actor.rot_speed * r.DEG2RAD)
+			move_key_pressed = true
+		}
 		if r.IsKeyDown(.W) {
 			actor.dir = r.Vector3Normalize(actor.dir + FORWARD)
 			velocity := actor.dir * actor.speed * dt
 			actor.model.transform *= r.MatrixTranslate(velocity.x, velocity.y, velocity.z)
-		}
-		if r.IsKeyDown(.A) {
-			actor.model.transform *= r.MatrixRotateY(actor.rot_speed * r.DEG2RAD)
+			actor.anim_idx = actor.anims_names["walk"]
+			move_key_pressed = true
 		}
 		if r.IsKeyDown(.S) {
 			actor.dir = r.Vector3Normalize(actor.dir + BACKWARD)
 			velocity := actor.dir * actor.speed * dt
 			actor.model.transform *= r.MatrixTranslate(velocity.x, velocity.y, velocity.z)
+			actor.anim_idx = actor.anims_names["walk"]
+			move_key_pressed = true
 		}
-		if r.IsKeyDown(.D) {
-			actor.model.transform *= r.MatrixRotateY(-actor.rot_speed * r.DEG2RAD)
+		if !move_key_pressed {
+			actor.anim_idx = actor.anims_names["idle"]
 		}
 
 

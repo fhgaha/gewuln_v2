@@ -3,17 +3,15 @@ package core
 import r "vendor:raylib"
 
 Actor :: struct {
-	pos:            vec3,
-	dir:            vec3,
-	speed:          f32,
-	rot_speed:      f32,
-	model:          r.Model,
-	bounding_box:   r.BoundingBox,
+	pos:                                   vec3,
+	dir:                                   vec3,
+	speed, rot_speed:                      f32,
+	model:                                 r.Model,
+	bounding_box:                          r.BoundingBox,
 	//animations
-	anims_count:    i32,
-	anim_idx:       i32,
-	anim_cur_frame: i32,
-	anims:          [^]r.ModelAnimation,
+	anims_count, anim_idx, anim_cur_frame: i32,
+	anims:                                 [^]r.ModelAnimation, //ptr to array
+	anims_names:                           map[string]i32,
 }
 
 vec2 :: [2]f32
