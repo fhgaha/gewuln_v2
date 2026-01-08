@@ -16,6 +16,8 @@ walk_area_model: r.Model
 
 small_resolution := true
 
+actor_state: Actor_State
+
 main :: proc() {
 	//this raylib setup should be in top for some reason
 	r.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "ogewuln")
@@ -94,32 +96,54 @@ main :: proc() {
 			small_resolution = !small_resolution
 		}
 
-		//movement
+
 		move_key_pressed := false
-		if r.IsKeyDown(.A) {
-			actor.model.transform *= r.MatrixRotateY(actor.rot_speed * r.DEG2RAD)
-			move_key_pressed = true
+
+		turn :: proc() {
+			if r.IsKeyDown(.A) {
+				actor.model.transform *= r.MatrixRotateY(actor.rot_speed * r.DEG2RAD)
+			}
+			if r.IsKeyDown(.D) {
+				actor.model.transform *= r.MatrixRotateY(-actor.rot_speed * r.DEG2RAD)
+			}
 		}
-		if r.IsKeyDown(.D) {
-			actor.model.transform *= r.MatrixRotateY(-actor.rot_speed * r.DEG2RAD)
-			move_key_pressed = true
-		}
-		if r.IsKeyDown(.W) {
-			actor.dir = r.Vector3Normalize(actor.dir + FORWARD)
-			velocity := actor.dir * actor.speed * dt
-			actor.model.transform *= r.MatrixTranslate(velocity.x, velocity.y, velocity.z)
-			actor.anim_idx = actor.anims_names["walk"]
-			move_key_pressed = true
-		}
-		if r.IsKeyDown(.S) {
-			actor.dir = r.Vector3Normalize(actor.dir + BACKWARD)
-			velocity := actor.dir * actor.speed * dt
-			actor.model.transform *= r.MatrixTranslate(velocity.x, velocity.y, velocity.z)
-			actor.anim_idx = actor.anims_names["walk"]
-			move_key_pressed = true
-		}
-		if !move_key_pressed {
+
+		handle_idle :: proc() {
+			// fmt.println("handle_idle")
 			actor.anim_idx = actor.anims_names["idle"]
+			turn()
+			walk_cond := r.IsKeyDown(.W) || r.IsKeyDown(.S)
+			if walk_cond {
+				actor_state = .WALK
+			}
+		}
+		handle_walk :: proc(dt: f32) {
+			// fmt.println("handle_walk")
+			actor.anim_idx = actor.anims_names["walk"]
+			turn()
+
+			velocity: vec3
+			if r.IsKeyDown(.W) {
+				actor.dir = r.Vector3Normalize(actor.dir + FORWARD)
+			}
+			if r.IsKeyDown(.S) {
+				actor.dir = r.Vector3Normalize(actor.dir + BACKWARD)
+			}
+			velocity += actor.dir * actor.speed * dt
+			actor.model.transform *= r.MatrixTranslate(velocity.x, velocity.y, velocity.z)
+			idle_cond := !(r.IsKeyDown(.W) || r.IsKeyDown(.S)) || r.Vector3Length(velocity) == 0
+			if idle_cond {
+				actor_state = .IDLE
+			}
+		}
+
+		switch actor_state {
+		case .IDLE:
+			handle_idle()
+		case .WALK:
+			handle_walk(dt)
+		case .INTERACT:
+
 		}
 
 
