@@ -3,10 +3,12 @@ package core
 import r "vendor:raylib"
 
 Actor :: struct {
-	model:          r.Model,
 	pos:            vec3,
+	dir:            vec3,
+	speed:          f32,
+	rot_speed:      f32,
+	model:          r.Model,
 	bounding_box:   r.BoundingBox,
-	direction:      vec3,
 	//animations
 	anims_count:    i32,
 	anim_idx:       i32,
@@ -26,3 +28,10 @@ RENDER_HEIGHT :: 180
 
 DARK :: r.Color{40, 40, 40, 255}
 FOV_DEG :: 90
+
+LEFT :: vec3{1, 0, 0}
+RIGHT :: vec3{-1, 0, 0}
+UP :: vec3{0, 1, 0}
+DOWN :: vec3{0, -1, 0}
+FORWARD :: vec3{0, 0, 1}
+BACKWARD :: vec3{0, 0, -1}

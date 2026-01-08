@@ -1,16 +1,17 @@
 package core
 
+import "core:math"
 import r "vendor:raylib"
 
 font: r.Font
 cam: r.Camera3D
 cam_mode: r.CameraMode
 
-small_resolution := false
-
 room: r.Model
 actor: Actor
 walk_area_model: r.Model
+
+small_resolution := true
 
 main :: proc() {
 	//this raylib setup should be in top for some reason
@@ -32,24 +33,22 @@ main :: proc() {
 		fovy       = FOV_DEG / 2,
 		projection = .PERSPECTIVE,
 	}
-	cam_mode = r.CameraMode.FREE
+	cam_mode = r.CameraMode.CUSTOM
 
 	//actor
 	// model_path: cstring = "assets/models/robot/robot.glb"
 	actor_path: cstring = "assets/models/mona_sax/export/glb/mona.glb"
+	actor_model := r.LoadModel(actor_path)
+	defer r.UnloadModel(actor_model)
 	actor_coll_path: cstring = "assets/models/mona_sax/export/glb/collider.glb"
 	actor_coll_model := r.LoadModel(actor_coll_path)
 	defer r.UnloadModel(actor_coll_model)
 
 	actor = Actor {
-		model          = r.LoadModel(actor_path),
-		pos            = vec3{0, 0, 0},
-		//todo does model in the case below needs to be unloaded manually?
-		bounding_box   = r.GetModelBoundingBox(actor_coll_model),
-		direction      = vec3{0, 0, -1},
-		anims_count    = 0,
-		anim_idx       = 0,
-		anim_cur_frame = 0,
+		speed        = 2,
+		rot_speed    = 4,
+		model        = actor_model,
+		bounding_box = r.GetModelBoundingBox(actor_coll_model),
 	}
 	actor.anims = r.LoadModelAnimations(actor_path, &actor.anims_count)
 	assert(actor.anims_count > 0, "Actor should have at least one animation")
@@ -72,13 +71,36 @@ main :: proc() {
 
 
 	for !r.WindowShouldClose() {
+		dt := r.GetFrameTime()
+
 		//input
 		switch {
 		case r.IsKeyPressed(.ONE):
 			actor.anim_idx = (actor.anim_idx + 1) % actor.anims_count
 		case r.IsKeyPressed(.TWO):
 			actor.anim_idx = (actor.anim_idx + actor.anims_count - 1) % actor.anims_count
+		case r.IsKeyPressed(.R):
+			small_resolution = !small_resolution
 		}
+
+		//movement
+		if r.IsKeyDown(.W) {
+			actor.dir = r.Vector3Normalize(actor.dir + FORWARD)
+			velocity := actor.dir * actor.speed * dt
+			actor.model.transform *= r.MatrixTranslate(velocity.x, velocity.y, velocity.z)
+		}
+		if r.IsKeyDown(.A) {
+			actor.model.transform *= r.MatrixRotateY(actor.rot_speed * r.DEG2RAD)
+		}
+		if r.IsKeyDown(.S) {
+			actor.dir = r.Vector3Normalize(actor.dir + BACKWARD)
+			velocity := actor.dir * actor.speed * dt
+			actor.model.transform *= r.MatrixTranslate(velocity.x, velocity.y, velocity.z)
+		}
+		if r.IsKeyDown(.D) {
+			actor.model.transform *= r.MatrixRotateY(-actor.rot_speed * r.DEG2RAD)
+		}
+
 
 		//update
 		update_model_anim(&actor)
@@ -110,7 +132,6 @@ main :: proc() {
 			}
 
 			draw_fps()
-
 		}
 		r.EndDrawing()
 
