@@ -1,7 +1,7 @@
 @echo off
 cls
 
-odin build . -out:bin/ogewuln.exe -debug
+odin build . -out:bin/gewuln.exe -debug
 
 if ERRORLEVEL 1 (
 	echo --compile:fail
@@ -9,6 +9,6 @@ if ERRORLEVEL 1 (
 )
 echo --compile:success
 
-call "bin/ogewuln.exe"
+call "bin/gewuln.exe"
 
 exit /B 0

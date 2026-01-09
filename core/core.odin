@@ -20,7 +20,7 @@ actor_state: Actor_State
 
 main :: proc() {
 	//this raylib setup should be in top for some reason
-	r.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "ogewuln")
+	r.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "gewuln")
 	r.SetTraceLogLevel(.ALL)
 	r.SetConfigFlags({.VSYNC_HINT})
 	r.SetTargetFPS(60)
@@ -97,8 +97,6 @@ main :: proc() {
 		}
 
 
-		move_key_pressed := false
-
 		turn :: proc() {
 			if r.IsKeyDown(.A) {
 				actor.model.transform *= r.MatrixRotateY(actor.rot_speed * r.DEG2RAD)
@@ -109,16 +107,20 @@ main :: proc() {
 		}
 
 		handle_idle :: proc() {
-			// fmt.println("handle_idle")
+			fmt.println("handle_idle")
 			actor.anim_idx = actor.anims_names["idle"]
 			turn()
 			walk_cond := r.IsKeyDown(.W) || r.IsKeyDown(.S)
+			interact_cond := r.IsKeyPressed(.E)
 			if walk_cond {
 				actor_state = .WALK
+			} else if interact_cond {
+				actor_state = .INTERACT
 			}
 		}
+
 		handle_walk :: proc(dt: f32) {
-			// fmt.println("handle_walk")
+			fmt.println("handle_walk")
 			actor.anim_idx = actor.anims_names["walk"]
 			turn()
 
@@ -137,13 +139,21 @@ main :: proc() {
 			}
 		}
 
+		handle_interact :: proc() {
+			fmt.println("handle_interact")
+			actor.anim_idx = actor.anims_names["interact"]
+			//wait till animation finished
+			idle_cond:bool
+			
+		}
+
 		switch actor_state {
 		case .IDLE:
 			handle_idle()
 		case .WALK:
 			handle_walk(dt)
 		case .INTERACT:
-
+			handle_interact()
 		}
 
 
