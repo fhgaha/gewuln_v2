@@ -1,5 +1,6 @@
 package core
 
+import "core:math"
 import "core:fmt"
 import "core:math/linalg"
 import r "vendor:raylib"
@@ -113,10 +114,11 @@ main :: proc() {
 			//translate actor bounding box
 			vel2: vec3 = input_dir * actor.speed * dt * actor_dir(&actor)
 			bb := actor.bounding_box
-			min := r.MatrixTranslate(vel2.x, vel2.y, vel2.z) * vec4{bb.min.x, bb.min.y, bb.min.z, 1}
-			max := r.MatrixTranslate(vel2.x, vel2.y, vel2.z) * vec4{bb.max.x, bb.max.y, bb.max.z, 1}
-			actor.bounding_box.min = vec3{min.x, min.y, min.z}
-			actor.bounding_box.max = vec3{max.x, max.y, max.z}
+			min := r.MatrixTranslate(vel2.x, vel2.y, vel2.z) * to_vec4(bb.min)
+			max := r.MatrixTranslate(vel2.x, vel2.y, vel2.z) * to_vec4(bb.max)
+			actor.bounding_box.min = to_vec3(min)
+			actor.bounding_box.max = to_vec3(max)
+
 
 			// fmt.println("vel len: ", r.Vector3Length(velocity))
 			should_move := r.IsKeyDown(.W) || r.IsKeyDown(.S)

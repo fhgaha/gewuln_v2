@@ -58,17 +58,17 @@ create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool 
 }
 
 actor_pos :: proc(actor: ^Actor) -> vec3 {
-	m := actor.model.transform
+	m: r.Matrix = actor.model.transform
 	return vec3{m[0, 3], m[1, 3], m[2, 3]}
 }
 
 actor_dir :: proc(actor: ^Actor) -> vec3 {
-	fwd, _, _ := actor_orientation(actor)
+	fwd, _, _: vec3 = actor_orientation(actor)
 	return fwd
 }
 
 actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
-	m := actor.model.transform
+	m: r.Matrix = actor.model.transform
 	// right = {m.m0, m.m1, m.m2}     // First column
 	left = vec3{m[0, 0], m[1, 0], m[2, 0]}
 	// up = {m.m4, m.m5, m.m6}        // Second column
@@ -76,6 +76,14 @@ actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 	// forward = {m.m8, m.m9, m.m10}  // Third column
 	fwd = vec3{m[0, 2], m[1, 2], m[2, 2]}
 	return
+}
+
+to_vec4 :: proc(v: vec3) -> vec4 {
+	return vec4{v.x, v.y, v.z, 1}
+}
+
+to_vec3 :: proc(v: vec4) -> vec3 {
+	return vec3{v.x, v.y, v.z}
 }
 
 //animations
