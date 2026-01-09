@@ -109,17 +109,19 @@ main :: proc() {
 			input_dir := f32(input_dir()) //-1, 0 or 1
 			vel: vec3 = input_dir * actor.speed * dt * FORWARD
 			actor.model.transform *= r.MatrixTranslate(vel.x, vel.y, vel.z)
+			
+			//translate actor bounding box
+			vel2: vec3 = input_dir * actor.speed * dt * actor_dir(&actor)
+			bb := actor.bounding_box
+			min := r.MatrixTranslate(vel2.x, vel2.y, vel2.z) * vec4{bb.min.x, bb.min.y, bb.min.z, 1}
+			max := r.MatrixTranslate(vel2.x, vel2.y, vel2.z) * vec4{bb.max.x, bb.max.y, bb.max.z, 1}
+			actor.bounding_box.min = vec3{min.x, min.y, min.z}
+			actor.bounding_box.max = vec3{max.x, max.y, max.z}
 
 			// fmt.println("vel len: ", r.Vector3Length(velocity))
 			should_move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
 			is_moving := r.Vector3Length(vel) != 0
 			idle_cond := !should_move && !is_moving
-			fmt.println(
-				"move ",
-				should_move,
-				", r.Vector3Length(vel) == 0: ",
-				r.Vector3Length(vel) == 0,
-			)
 			if idle_cond {
 				actor.state = .IDLE
 				fmt.println("handle_idle")
@@ -200,12 +202,6 @@ render_3d_scene :: proc() {
 		r.DrawModel(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
 		r.DrawModelWires(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
 		r.DrawBoundingBox(actor.bounding_box, r.MAGENTA)
-
-		fwd, left, up := actor_orientation(&actor)
-		r.DrawCylinderEx(actor_pos(&actor), actor_pos(&actor) + fwd, 0.01, 0.01, 10, r.RED)
-		r.DrawCylinderEx(actor_pos(&actor), actor_pos(&actor) + left, 0.01, 0.01, 10, r.GREEN)
-		r.DrawCylinderEx(actor_pos(&actor), actor_pos(&actor) + up, 0.01, 0.01, 10, r.BLUE)
-
 
 		r.DrawGrid(slices = 10, spacing = 1)
 		draw_gizmo()
