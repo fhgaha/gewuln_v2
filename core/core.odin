@@ -1,6 +1,7 @@
 package core
 
 import "core:fmt"
+import "core:math/linalg"
 import r "vendor:raylib"
 
 font: r.Font
@@ -27,7 +28,7 @@ main :: proc() {
 
 	//set up
 	cam = r.Camera3D {
-		position   = vec3{0, 2, 2},
+		position   = vec3{1, 2, 4},
 		target     = vec3{0, 1, 0},
 		up         = vec3{0, 1, 0},
 		fovy       = FOV_DEG / 2,
@@ -74,42 +75,49 @@ main :: proc() {
 			}
 		}
 
+		input_dir :: proc() -> i32 {
+			input_dir: i32
+			if r.IsKeyDown(.W) {
+				input_dir += 1
+			}
+			if r.IsKeyDown(.S) {
+				input_dir -= 1
+			}
+			return input_dir
+		}
+
 		handle_idle :: proc() {
 			play_anim(&actor.animator, .IDLE)
 			turn()
-			walk_cond := (r.IsKeyDown(.W) || r.IsKeyDown(.S))
+			input_dir := input_dir()
+			walk_cond := input_dir != 0
 			interact_cond := r.IsKeyPressed(.E)
-			if walk_cond {
+			switch {
+			case walk_cond:
 				actor.state = .WALK
 				fmt.println("handle_walk")
-			} else if interact_cond {
+			case interact_cond:
 				actor.state = .INTERACT
 				fmt.println("handle_interact")
 			}
 		}
 
+
 		handle_walk :: proc(dt: f32) {
 			play_anim(&actor.animator, .WALK)
 			turn()
-			velocity: vec3
-			if r.IsKeyDown(.W) {
-				actor.dir = r.Vector3Normalize(actor.dir + FORWARD)
-				// fmt.println("dir on W: ", actor.dir)
-			}
-			if r.IsKeyDown(.S) {
-				actor.dir = r.Vector3Normalize(actor.dir + BACKWARD)
-				// fmt.println("dir on S: ", actor.dir)
-			}
-			velocity += actor.dir * actor.speed * dt
-			actor.model.transform *= r.MatrixTranslate(velocity.x, velocity.y, velocity.z)
+			input_dir := f32(input_dir())	//-1, 0 or 1
+			vel := input_dir * actor_dir(&actor) * actor.speed * dt
+			actor.model.transform *= r.MatrixTranslate(vel.x, vel.y, vel.z)
 
-			interact_cond := r.IsKeyPressed(.E)
 			// fmt.println("vel len: ", r.Vector3Length(velocity))
-			idle_cond := !(r.IsKeyDown(.W) || r.IsKeyDown(.S)) || r.Vector3Length(velocity) == 0
+			move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
+			idle_cond := move && r.Vector3Length(vel) == 0
 			if idle_cond {
 				actor.state = .IDLE
 				fmt.println("handle_idle")
 			}
+			interact_cond := r.IsKeyPressed(.E)
 			if interact_cond {
 				actor.state = .INTERACT
 				fmt.println("handle_interact")
@@ -182,9 +190,14 @@ render_3d_scene :: proc() {
 	{
 		r.DrawModel(room, vec3{0, 0, 0}, 1, r.GRAY)
 		r.DrawModelWires(walk_area_model, vec3{0, 0, 0}, 1, r.ORANGE)
-		r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
-		r.DrawModelWires(actor.model, actor.pos, 1, r.WHITE)
+		r.DrawModel(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
+		r.DrawModelWires(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
 		r.DrawBoundingBox(actor.bounding_box, r.MAGENTA)
+
+		fwd, _, _ := actor_orientation(&actor)
+		r.DrawCylinderEx(actor_pos(&actor), actor_pos(&actor) + fwd, 0.1, 0.1, 10, r.RED)
+		fmt.println("pos ", actor_pos(&actor))
+		// fmt.println("ass ", actor_pos(&actor), fwd)
 
 		// r.DrawGrid(slices = 10, spacing = 1)
 		draw_gizmo()
