@@ -1,9 +1,6 @@
 package core
 
 import "core:fmt"
-import "core:math"
-import "core:strings"
-import "core:unicode/utf8"
 import r "vendor:raylib"
 
 font: r.Font
@@ -14,9 +11,7 @@ room: r.Model
 actor: Actor
 walk_area_model: r.Model
 
-small_resolution := true
-
-actor_state: Actor_State
+small_resolution := false
 
 main :: proc() {
 	//this raylib setup should be in top for some reason
@@ -54,20 +49,13 @@ main :: proc() {
 		rot_speed    = 4,
 		model        = actor_model,
 		bounding_box = r.GetModelBoundingBox(actor_coll_model),
-		anims_names  = make(map[string]i32),
+		animator     = Animator{},
 	}
-	actor.anims = r.LoadModelAnimations(actor_path, &actor.anims_count)
-	assert(actor.anims_count > 0, "Actor should have at least one animation")
-	defer r.UnloadModelAnimations(actor.anims, actor.anims_count)
+	actor.animator.anims = r.LoadModelAnimations(actor_path, &actor.animator.anims_count)
+	assert(actor.animator.anims_count > 0, "Actor should have at least one animation")
+	fill_animation_names(&actor.animator)
+	defer r.UnloadModelAnimations(actor.animator.anims, actor.animator.anims_count)
 	defer r.UnloadModel(actor.model)
-
-	for &a, i in actor.anims[:actor.anims_count] {
-		name_cstr := cstring(&a.name[0])
-		name_str := string(name_cstr)
-		actor.anims_names[name_str] = i32(i)
-		fmt.println("+++ ", name_str, ": ", actor.anims_names[name_str])
-	}
-
 
 	//room
 	room_path: cstring = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
@@ -88,14 +76,9 @@ main :: proc() {
 
 		//input
 		switch {
-		case r.IsKeyPressed(.ONE):
-			actor.anim_idx = (actor.anim_idx + 1) % actor.anims_count
-		case r.IsKeyPressed(.TWO):
-			actor.anim_idx = (actor.anim_idx + actor.anims_count - 1) % actor.anims_count
 		case r.IsKeyPressed(.R):
 			small_resolution = !small_resolution
 		}
-
 
 		turn :: proc() {
 			if r.IsKeyDown(.A) {
@@ -107,23 +90,22 @@ main :: proc() {
 		}
 
 		handle_idle :: proc() {
-			fmt.println("handle_idle")
-			actor.anim_idx = actor.anims_names["idle"]
+			play_anim(&actor.animator, "idle")
 			turn()
-			walk_cond := r.IsKeyDown(.W) || r.IsKeyDown(.S)
+			walk_cond := (r.IsKeyDown(.W) || r.IsKeyDown(.S))
 			interact_cond := r.IsKeyPressed(.E)
 			if walk_cond {
-				actor_state = .WALK
+				actor.state = .WALK
+				fmt.println("handle_walk")
 			} else if interact_cond {
-				actor_state = .INTERACT
+				actor.state = .INTERACT
+				fmt.println("handle_interact")
 			}
 		}
 
 		handle_walk :: proc(dt: f32) {
-			fmt.println("handle_walk")
-			actor.anim_idx = actor.anims_names["walk"]
+			play_anim(&actor.animator, "walk")
 			turn()
-
 			velocity: vec3
 			if r.IsKeyDown(.W) {
 				actor.dir = r.Vector3Normalize(actor.dir + FORWARD)
@@ -135,19 +117,21 @@ main :: proc() {
 			actor.model.transform *= r.MatrixTranslate(velocity.x, velocity.y, velocity.z)
 			idle_cond := !(r.IsKeyDown(.W) || r.IsKeyDown(.S)) || r.Vector3Length(velocity) == 0
 			if idle_cond {
-				actor_state = .IDLE
+				actor.state = .IDLE
+				fmt.println("handle_idle")
 			}
 		}
 
 		handle_interact :: proc() {
-			fmt.println("handle_interact")
-			actor.anim_idx = actor.anims_names["interact"]
-			//wait till animation finished
-			idle_cond:bool
-			
+			play_anim(&actor.animator, "interact")
+			idle_cond := last_frame_reached(&actor.animator)
+			if idle_cond {
+				actor.state = .IDLE
+				fmt.println("handle_idle")
+			}
 		}
 
-		switch actor_state {
+		switch actor.state {
 		case .IDLE:
 			handle_idle()
 		case .WALK:
@@ -196,18 +180,6 @@ main :: proc() {
 
 	r.CloseWindow()
 }
-
-// move_model: proc(model: Og_Model){
-
-// }
-
-
-update_model_anim :: proc(actor: ^Actor) {
-	anim := actor.anims[actor.anim_idx]
-	actor.anim_cur_frame = (actor.anim_cur_frame + 1) % anim.frameCount
-	r.UpdateModelAnimation(actor.model, anim, actor.anim_cur_frame)
-}
-
 
 render_3d_scene :: proc() {
 	r.ClearBackground(DARK)
