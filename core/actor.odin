@@ -59,27 +59,22 @@ create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool 
 
 actor_pos :: proc(actor: ^Actor) -> vec3 {
 	m := actor.model.transform
-	// m = r.MatrixTranspose(m)
 	return vec3{m[0, 3], m[1, 3], m[2, 3]}
 }
 
 actor_dir :: proc(actor: ^Actor) -> vec3 {
-	fwd, right, up := actor_orientation(actor)
+	fwd, _, _ := actor_orientation(actor)
 	return fwd
 }
 
-actor_orientation :: proc(actor: ^Actor) -> (fwd, right, up: vec3) {
+actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 	m := actor.model.transform
-
 	// right = {m.m0, m.m1, m.m2}     // First column
-	right = vec3{m[0, 0], m[1, 0], m[2, 0]}
-
+	left = vec3{m[0, 0], m[1, 0], m[2, 0]}
 	// up = {m.m4, m.m5, m.m6}        // Second column
 	up = vec3{m[0, 1], m[1, 1], m[2, 1]}
-
 	// forward = {m.m8, m.m9, m.m10}  // Third column
 	fwd = vec3{m[0, 2], m[1, 2], m[2, 2]}
-
 	return
 }
 

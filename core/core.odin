@@ -106,13 +106,20 @@ main :: proc() {
 		handle_walk :: proc(dt: f32) {
 			play_anim(&actor.animator, .WALK)
 			turn()
-			input_dir := f32(input_dir())	//-1, 0 or 1
-			vel := input_dir * actor_dir(&actor) * actor.speed * dt
+			input_dir := f32(input_dir()) //-1, 0 or 1
+			vel: vec3 = input_dir * actor.speed * dt * FORWARD
 			actor.model.transform *= r.MatrixTranslate(vel.x, vel.y, vel.z)
 
 			// fmt.println("vel len: ", r.Vector3Length(velocity))
-			move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
-			idle_cond := move && r.Vector3Length(vel) == 0
+			should_move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
+			is_moving := r.Vector3Length(vel) != 0
+			idle_cond := !should_move && !is_moving
+			fmt.println(
+				"move ",
+				should_move,
+				", r.Vector3Length(vel) == 0: ",
+				r.Vector3Length(vel) == 0,
+			)
 			if idle_cond {
 				actor.state = .IDLE
 				fmt.println("handle_idle")
@@ -194,12 +201,13 @@ render_3d_scene :: proc() {
 		r.DrawModelWires(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
 		r.DrawBoundingBox(actor.bounding_box, r.MAGENTA)
 
-		fwd, _, _ := actor_orientation(&actor)
-		r.DrawCylinderEx(actor_pos(&actor), actor_pos(&actor) + fwd, 0.1, 0.1, 10, r.RED)
-		fmt.println("pos ", actor_pos(&actor))
-		// fmt.println("ass ", actor_pos(&actor), fwd)
+		fwd, left, up := actor_orientation(&actor)
+		r.DrawCylinderEx(actor_pos(&actor), actor_pos(&actor) + fwd, 0.01, 0.01, 10, r.RED)
+		r.DrawCylinderEx(actor_pos(&actor), actor_pos(&actor) + left, 0.01, 0.01, 10, r.GREEN)
+		r.DrawCylinderEx(actor_pos(&actor), actor_pos(&actor) + up, 0.01, 0.01, 10, r.BLUE)
 
-		// r.DrawGrid(slices = 10, spacing = 1)
+
+		r.DrawGrid(slices = 10, spacing = 1)
 		draw_gizmo()
 	}
 	r.EndMode3D()
@@ -208,9 +216,9 @@ render_3d_scene :: proc() {
 
 draw_gizmo :: proc() {
 	dist := r.Vector3Distance(cam.position, vec3{0, 0, 0})
-	r.DrawLine3D(vec3{0, 0, 0}, vec3{1, 0, 0} * dist, r.RED)
-	r.DrawLine3D(vec3{0, 0, 0}, vec3{0, 1, 0} * dist, r.GREEN)
-	r.DrawLine3D(vec3{0, 0, 0}, vec3{0, 0, 1} * dist, r.BLUE)
+	r.DrawCylinderEx(vec3{0, 0, 0}, vec3{1, 0, 0} * dist, 0.02, 0.02, 2, r.RED)
+	r.DrawCylinderEx(vec3{0, 0, 0}, vec3{0, 1, 0} * dist, 0.02, 0.02, 2, r.GREEN)
+	r.DrawCylinderEx(vec3{0, 0, 0}, vec3{0, 0, 1} * dist, 0.02, 0.02, 2, r.BLUE)
 }
 
 draw_fps :: proc() {
