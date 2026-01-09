@@ -3,11 +3,13 @@ package core
 import r "vendor:raylib"
 
 Actor :: struct {
-	speed, rot_speed: f32,
-	model:            r.Model,
-	bounding_box:     r.BoundingBox,
-	state:            Actor_State,
-	animator:         Animator,
+	pos:               vec3,
+	speed, rot_speed:  f32,
+	model:             r.Model,
+	bounding_box_loc:      r.BoundingBox,
+	bounding_box_glob: r.BoundingBox,
+	state:             Actor_State,
+	animator:          Animator,
 }
 
 Actor_State :: enum {
@@ -25,7 +27,7 @@ actor_state_strings := [Actor_State]string {
 create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool {
 	// Load resources
 	actor_model := r.LoadModel(actor_path)
-	if !r.IsModelValid(actor_model) { 	// You'd need a check
+	if !r.IsModelValid(actor_model) {
 		return false
 	}
 
@@ -44,12 +46,16 @@ create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool 
 		return false
 	}
 
+	bb := r.GetModelBoundingBox(actor_coll_model)
+
 	// Assemble the actor
 	actor^ = Actor {
 		speed = 2,
 		rot_speed = 4,
 		model = actor_model,
-		bounding_box = r.GetModelBoundingBox(actor_coll_model),
+		bounding_box_loc = bb,
+		bounding_box_glob = bb,
+		state = .IDLE,
 		animator = Animator{anims_count = anim_count, anims = anims},
 	}
 	fill_animation_names(&actor.animator)

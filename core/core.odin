@@ -1,8 +1,6 @@
 package core
 
-import "core:math"
 import "core:fmt"
-import "core:math/linalg"
 import r "vendor:raylib"
 
 font: r.Font
@@ -65,6 +63,8 @@ main :: proc() {
 		switch {
 		case r.IsKeyPressed(.R):
 			small_resolution = !small_resolution
+		case r.IsKeyPressed(.C):
+			cam_mode = .FREE
 		}
 
 		turn :: proc() {
@@ -108,17 +108,14 @@ main :: proc() {
 			play_anim(&actor.animator, .WALK)
 			turn()
 			input_dir := f32(input_dir()) //-1, 0 or 1
-			vel: vec3 = input_dir * actor.speed * dt * FORWARD
-			actor.model.transform *= r.MatrixTranslate(vel.x, vel.y, vel.z)
-			
-			//translate actor bounding box
-			vel2: vec3 = input_dir * actor.speed * dt * actor_dir(&actor)
-			bb := actor.bounding_box
-			min := r.MatrixTranslate(vel2.x, vel2.y, vel2.z) * to_vec4(bb.min)
-			max := r.MatrixTranslate(vel2.x, vel2.y, vel2.z) * to_vec4(bb.max)
-			actor.bounding_box.min = to_vec3(min)
-			actor.bounding_box.max = to_vec3(max)
+			// vel: vec3 = input_dir * actor.speed * dt * FORWARD
+			vel: vec3 = input_dir * actor.speed * dt * actor_dir(&actor)
+			actor.pos += vel
+			// actor.model.transform *= r.MatrixTranslate(vel.x, vel.y, vel.z)
 
+			//translate actor bounding box
+			actor.bounding_box_glob.min = actor.bounding_box_loc.min + actor.pos
+			actor.bounding_box_glob.max = actor.bounding_box_loc.max + actor.pos
 
 			// fmt.println("vel len: ", r.Vector3Length(velocity))
 			should_move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
@@ -201,11 +198,11 @@ render_3d_scene :: proc() {
 	{
 		r.DrawModel(room, vec3{0, 0, 0}, 1, r.GRAY)
 		r.DrawModelWires(walk_area_model, vec3{0, 0, 0}, 1, r.ORANGE)
-		r.DrawModel(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
-		r.DrawModelWires(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
-		r.DrawBoundingBox(actor.bounding_box, r.MAGENTA)
+		r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
+		// r.DrawModelWires(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
 
-		r.DrawGrid(slices = 10, spacing = 1)
+		r.DrawBoundingBox(actor.bounding_box_glob, r.MAGENTA)
+
 		draw_gizmo()
 	}
 	r.EndMode3D()
