@@ -35,26 +35,12 @@ main :: proc() {
 	}
 	cam_mode = r.CameraMode.CUSTOM
 
-	//actor
-	// model_path: cstring = "assets/models/robot/robot.glb"
-	actor_path: cstring = "assets/models/mona_sax/export/glb/mona.glb"
-	actor_model := r.LoadModel(actor_path)
-	defer r.UnloadModel(actor_model)
-	actor_coll_path: cstring = "assets/models/mona_sax/export/glb/collider.glb"
-	actor_coll_model := r.LoadModel(actor_coll_path)
-	defer r.UnloadModel(actor_coll_model)
-
-	actor = Actor {
-		speed        = 2,
-		rot_speed    = 4,
-		model        = actor_model,
-		bounding_box = r.GetModelBoundingBox(actor_coll_model),
-	}
-	actor.animator.anims = r.LoadModelAnimations(actor_path, &actor.animator.anims_count)
-	assert(actor.animator.anims_count > 0, "Actor should have at least one animation")
-	fill_animation_names(&actor.animator)
-	defer r.UnloadModelAnimations(actor.animator.anims, actor.animator.anims_count)
-	defer r.UnloadModel(actor.model)
+	ok := create_actor(
+		&actor,
+		"assets/models/mona_sax/export/glb/mona.glb",
+		"assets/models/mona_sax/export/glb/collider.glb",
+	)
+	assert(ok)
 
 	//room
 	room_path: cstring = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
@@ -108,16 +94,25 @@ main :: proc() {
 			velocity: vec3
 			if r.IsKeyDown(.W) {
 				actor.dir = r.Vector3Normalize(actor.dir + FORWARD)
+				// fmt.println("dir on W: ", actor.dir)
 			}
 			if r.IsKeyDown(.S) {
 				actor.dir = r.Vector3Normalize(actor.dir + BACKWARD)
+				// fmt.println("dir on S: ", actor.dir)
 			}
 			velocity += actor.dir * actor.speed * dt
 			actor.model.transform *= r.MatrixTranslate(velocity.x, velocity.y, velocity.z)
+
+			interact_cond := r.IsKeyPressed(.E)
+			// fmt.println("vel len: ", r.Vector3Length(velocity))
 			idle_cond := !(r.IsKeyDown(.W) || r.IsKeyDown(.S)) || r.Vector3Length(velocity) == 0
 			if idle_cond {
 				actor.state = .IDLE
 				fmt.println("handle_idle")
+			}
+			if interact_cond {
+				actor.state = .INTERACT
+				fmt.println("handle_interact")
 			}
 		}
 

@@ -24,6 +24,42 @@ actor_state_strings := [Actor_State]string {
 	.INTERACT = "interact",
 }
 
+create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool {
+	// Load resources
+	actor_model := r.LoadModel(actor_path)
+	if !r.IsModelValid(actor_model) { 	// You'd need a check
+		return false
+	}
+
+	actor_coll_model := r.LoadModel(collider_path)
+	if !r.IsModelValid(actor_coll_model) {
+		r.UnloadModel(actor_model)
+		return false
+	}
+
+	// Load animations
+	anim_count: i32
+	anims := r.LoadModelAnimations(actor_path, &anim_count)
+	if anims == nil || anim_count == 0 {
+		r.UnloadModel(actor_model)
+		r.UnloadModel(actor_coll_model)
+		return false
+	}
+
+	// Assemble the actor
+	actor^ = Actor {
+		speed = 2,
+		rot_speed = 4,
+		model = actor_model,
+		bounding_box = r.GetModelBoundingBox(actor_coll_model),
+		animator = Animator{anims_count = anim_count, anims = anims},
+	}
+	fill_animation_names(&actor.animator)
+
+	return true
+}
+
+//animations
 Animator :: struct {
 	anims_count, anim_idx, anim_cur_frame: i32,
 	anims:                                 [^]r.ModelAnimation, //ptr to array
