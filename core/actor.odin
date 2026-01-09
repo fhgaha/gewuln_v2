@@ -18,6 +18,12 @@ Actor_State :: enum {
 	INTERACT,
 }
 
+actor_state_strings := [Actor_State]string {
+	.IDLE     = "idle",
+	.WALK     = "walk",
+	.INTERACT = "interact",
+}
+
 Animator :: struct {
 	anims_count, anim_idx, anim_cur_frame: i32,
 	anims:                                 [^]r.ModelAnimation, //ptr to array
@@ -38,13 +44,14 @@ fill_animation_names :: proc(animator: ^Animator) {
 	}
 }
 
-play_anim :: proc(animator: ^Animator, name: string) {
+play_anim :: proc(animator: ^Animator, state: Actor_State) {
+	name: string = actor_state_strings[state]
 	animator.anim_idx = animator.anims_names[name]
 }
 
 update_model_anim :: proc(actor: ^Actor) {
-	animator := &actor.animator
-	anim := animator.anims[animator.anim_idx]
+	animator: ^Animator = &actor.animator
+	anim: r.ModelAnimation = animator.anims[animator.anim_idx]
 	animator.anim_cur_frame = (animator.anim_cur_frame + 1) % anim.frameCount
 	r.UpdateModelAnimation(actor.model, anim, animator.anim_cur_frame)
 }

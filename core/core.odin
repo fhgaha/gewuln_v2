@@ -49,7 +49,6 @@ main :: proc() {
 		rot_speed    = 4,
 		model        = actor_model,
 		bounding_box = r.GetModelBoundingBox(actor_coll_model),
-		animator     = Animator{},
 	}
 	actor.animator.anims = r.LoadModelAnimations(actor_path, &actor.animator.anims_count)
 	assert(actor.animator.anims_count > 0, "Actor should have at least one animation")
@@ -90,7 +89,7 @@ main :: proc() {
 		}
 
 		handle_idle :: proc() {
-			play_anim(&actor.animator, "idle")
+			play_anim(&actor.animator, .IDLE)
 			turn()
 			walk_cond := (r.IsKeyDown(.W) || r.IsKeyDown(.S))
 			interact_cond := r.IsKeyPressed(.E)
@@ -104,7 +103,7 @@ main :: proc() {
 		}
 
 		handle_walk :: proc(dt: f32) {
-			play_anim(&actor.animator, "walk")
+			play_anim(&actor.animator, .WALK)
 			turn()
 			velocity: vec3
 			if r.IsKeyDown(.W) {
@@ -123,7 +122,7 @@ main :: proc() {
 		}
 
 		handle_interact :: proc() {
-			play_anim(&actor.animator, "interact")
+			play_anim(&actor.animator, .INTERACT)
 			idle_cond := last_frame_reached(&actor.animator)
 			if idle_cond {
 				actor.state = .IDLE
