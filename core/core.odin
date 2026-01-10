@@ -154,7 +154,7 @@ main :: proc() {
 		//update
 		update_model_anim(&actor)
 		r.UpdateCamera(&cam, cam_mode)
-
+		update_cam(dt)
 
 		r.BeginDrawing()
 		{
@@ -225,4 +225,39 @@ draw_fps :: proc() {
 		spacing = 0,
 		tint = r.ORANGE,
 	)
+}
+
+update_cam :: proc(dt: f32) {
+	//free camera with moving on arrows
+	//raylib UpdateCamera src:  https://github.com/raysan5/raylib/blob/5b0a799769da9a2ebc662d4aab1f31cf85882c56/src/rcamera.h#L445
+
+	cam_speed: f32 = 10
+
+	if r.IsKeyDown(.UP) { 	//forward
+		r.CameraMoveForward(&cam, cam_speed * dt, moveInWorldPlane = false)
+	}
+	if r.IsKeyDown(.DOWN) { 	//backward
+		r.CameraMoveForward(&cam, -cam_speed * dt, moveInWorldPlane = false)
+	}
+	if r.IsKeyDown(.LEFT) {
+		r.CameraMoveRight(&cam, -cam_speed * dt, moveInWorldPlane = false)
+	}
+	if r.IsKeyDown(.RIGHT) {
+		r.CameraMoveRight(&cam, cam_speed * dt, moveInWorldPlane = false)
+	}
+
+	//mouse
+	//pitch, yaw, roll -> тангаж, курс, крен
+	cam_rot_speed: f32 = 0.25
+	mouse_pos_delta: vec2 = r.GetMouseDelta()
+
+	r.CameraPitch(
+		&cam,
+		-mouse_pos_delta.y * cam_rot_speed * dt,
+		lockView = false,
+		rotateAroundTarget = false,
+		rotateUp = false,
+	)
+	r.CameraYaw(&cam, -mouse_pos_delta.x * cam_rot_speed * dt, rotateAroundTarget = true)
+	r.CameraMoveToTarget(&cam, -r.GetMouseWheelMove())	//zoom
 }
