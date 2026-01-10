@@ -1,12 +1,13 @@
 package core
 
+import "core:fmt"
 import r "vendor:raylib"
 
 Actor :: struct {
 	pos:               vec3,
 	speed, rot_speed:  f32,
 	model:             r.Model,
-	bounding_box_loc:      r.BoundingBox,
+	bounding_box_loc:  r.BoundingBox,
 	bounding_box_glob: r.BoundingBox,
 	state:             Actor_State,
 	animator:          Animator,
@@ -84,13 +85,73 @@ actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 	return
 }
 
-to_vec4 :: proc(v: vec3) -> vec4 {
-	return vec4{v.x, v.y, v.z, 1}
+
+//states
+input_dir :: proc() -> i32 {
+	input_dir: i32
+	if r.IsKeyDown(.W) {
+		input_dir += 1
+	}
+	if r.IsKeyDown(.S) {
+		input_dir -= 1
+	}
+	return input_dir
 }
 
-to_vec3 :: proc(v: vec4) -> vec3 {
-	return vec3{v.x, v.y, v.z}
+handle_idle :: proc() {
+	play_anim(&actor.animator, .IDLE)
+	turn()
+	input_dir := input_dir()
+	walk_cond := input_dir != 0
+	interact_cond := r.IsKeyPressed(.E)
+	switch {
+	case walk_cond:
+		actor.state = .WALK
+		fmt.println("handle_walk")
+	case interact_cond:
+		actor.state = .INTERACT
+		fmt.println("handle_interact")
+	}
 }
+
+
+handle_walk :: proc(dt: f32) {
+	play_anim(&actor.animator, .WALK)
+	turn()
+	input_dir := f32(input_dir()) //-1, 0 or 1
+	// vel: vec3 = input_dir * actor.speed * dt * FORWARD
+	vel: vec3 = input_dir * actor.speed * dt * actor_dir(&actor)
+	actor.pos += vel
+	// actor.model.transform *= r.MatrixTranslate(vel.x, vel.y, vel.z)
+
+	//translate actor bounding box
+	actor.bounding_box_glob.min = actor.bounding_box_loc.min + actor.pos
+	actor.bounding_box_glob.max = actor.bounding_box_loc.max + actor.pos
+
+	// fmt.println("vel len: ", r.Vector3Length(velocity))
+	should_move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
+	is_moving := r.Vector3Length(vel) != 0
+	idle_cond := !should_move && !is_moving
+	if idle_cond {
+		actor.state = .IDLE
+		fmt.println("handle_idle")
+	}
+	interact_cond := r.IsKeyPressed(.E)
+	if interact_cond {
+		actor.state = .INTERACT
+		fmt.println("handle_interact")
+	}
+}
+
+handle_interact :: proc() {
+	play_anim(&actor.animator, .INTERACT)
+	idle_cond := last_frame_reached(&actor.animator)
+	if idle_cond {
+		actor.state = .IDLE
+		fmt.println("handle_idle")
+	}
+}
+
 
 //animations
 Animator :: struct {
@@ -125,9 +186,19 @@ play_anim :: proc(animator: ^Animator, state: Actor_State) {
 	animator.anim_cur_frame = 0
 }
 
-update_model_anim :: proc(actor: ^Actor) {
+update_actor_anim :: proc(actor: ^Actor) {
 	animator: ^Animator = &actor.animator
 	anim: r.ModelAnimation = animator.anims[animator.anim_idx]
 	animator.anim_cur_frame = (animator.anim_cur_frame + 1) % anim.frameCount
 	r.UpdateModelAnimation(actor.model, anim, animator.anim_cur_frame)
+}
+
+
+//math
+to_vec4 :: proc(v: vec3) -> vec4 {
+	return vec4{v.x, v.y, v.z, 1}
+}
+
+to_vec3 :: proc(v: vec4) -> vec3 {
+	return vec3{v.x, v.y, v.z}
 }

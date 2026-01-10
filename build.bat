@@ -1,7 +1,8 @@
 @echo off
 cls
 
-odin build . -out:bin/gewuln.exe -debug
+::-o:none		//disable optimisations
+odin build . -out:bin/gewuln.exe -debug -o:none
 
 if ERRORLEVEL 1 (
 	echo --compile:fail

@@ -10,6 +10,7 @@ cam_mode: r.CameraMode
 room: r.Model
 actor: Actor
 walk_area_model: r.Model
+walk_area_tris: [dynamic]tri
 
 small_resolution := false
 
@@ -49,8 +50,29 @@ main :: proc() {
 
 	walk_area_path: cstring = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
 	walk_area_model = r.LoadModel(walk_area_path)
-	walk_area_bb: r.BoundingBox = r.GetModelBoundingBox(walk_area_model)
 	defer r.UnloadModel(walk_area_model)
+
+
+	for &m in walk_area_model.meshes[:walk_area_model.meshCount] {
+		cntr := 0
+		a_tri: tri
+
+		for idx, i in m.indices[:m.triangleCount * 3] {
+			vert := vec3{
+				m.vertices[idx * 3], 
+				m.vertices[idx * 3 + 1], 
+				m.vertices[idx * 3 + 2],
+			}
+			a_tri[cntr] = vert
+			cntr += 1
+
+			if cntr == 3 {
+				append(&walk_area_tris, a_tri)
+				cntr = 0
+			}
+		}
+	}
+
 
 	target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	defer r.UnloadRenderTexture(target)
@@ -63,82 +85,6 @@ main :: proc() {
 		switch {
 		case r.IsKeyPressed(.R):
 			small_resolution = !small_resolution
-		case r.IsKeyPressed(.C):
-			cam_mode = .FREE
-		}
-
-		turn :: proc() {
-			if r.IsKeyDown(.A) {
-				actor.model.transform *= r.MatrixRotateY(actor.rot_speed * r.DEG2RAD)
-			}
-			if r.IsKeyDown(.D) {
-				actor.model.transform *= r.MatrixRotateY(-actor.rot_speed * r.DEG2RAD)
-			}
-		}
-
-		input_dir :: proc() -> i32 {
-			input_dir: i32
-			if r.IsKeyDown(.W) {
-				input_dir += 1
-			}
-			if r.IsKeyDown(.S) {
-				input_dir -= 1
-			}
-			return input_dir
-		}
-
-		handle_idle :: proc() {
-			play_anim(&actor.animator, .IDLE)
-			turn()
-			input_dir := input_dir()
-			walk_cond := input_dir != 0
-			interact_cond := r.IsKeyPressed(.E)
-			switch {
-			case walk_cond:
-				actor.state = .WALK
-				fmt.println("handle_walk")
-			case interact_cond:
-				actor.state = .INTERACT
-				fmt.println("handle_interact")
-			}
-		}
-
-
-		handle_walk :: proc(dt: f32) {
-			play_anim(&actor.animator, .WALK)
-			turn()
-			input_dir := f32(input_dir()) //-1, 0 or 1
-			// vel: vec3 = input_dir * actor.speed * dt * FORWARD
-			vel: vec3 = input_dir * actor.speed * dt * actor_dir(&actor)
-			actor.pos += vel
-			// actor.model.transform *= r.MatrixTranslate(vel.x, vel.y, vel.z)
-
-			//translate actor bounding box
-			actor.bounding_box_glob.min = actor.bounding_box_loc.min + actor.pos
-			actor.bounding_box_glob.max = actor.bounding_box_loc.max + actor.pos
-
-			// fmt.println("vel len: ", r.Vector3Length(velocity))
-			should_move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
-			is_moving := r.Vector3Length(vel) != 0
-			idle_cond := !should_move && !is_moving
-			if idle_cond {
-				actor.state = .IDLE
-				fmt.println("handle_idle")
-			}
-			interact_cond := r.IsKeyPressed(.E)
-			if interact_cond {
-				actor.state = .INTERACT
-				fmt.println("handle_interact")
-			}
-		}
-
-		handle_interact :: proc() {
-			play_anim(&actor.animator, .INTERACT)
-			idle_cond := last_frame_reached(&actor.animator)
-			if idle_cond {
-				actor.state = .IDLE
-				fmt.println("handle_idle")
-			}
 		}
 
 		switch actor.state {
@@ -152,9 +98,12 @@ main :: proc() {
 
 
 		//update
-		update_model_anim(&actor)
-		r.UpdateCamera(&cam, cam_mode)
+		update_actor_anim(&actor)
 		update_cam(dt)
+
+
+		//walk area
+
 
 		r.BeginDrawing()
 		{
@@ -203,6 +152,24 @@ render_3d_scene :: proc() {
 
 		r.DrawBoundingBox(actor.bounding_box_glob, r.MAGENTA)
 
+		// fmt.println("walkareatris amnt: ", len(walk_area_tris))
+		for &tr, i in walk_area_tris {
+			// fmt.println(i, ": ", tr[0], tr[1], tr[2])
+			// r.DrawTriangle3D(tr[0], tr[1], tr[2], r.RED)
+			// 	r.DrawTriangleStrip3D(&tr[0], 3, r.GREEN)
+			// 	r.DrawTriangleStrip3D(&tr[1], 3, r.GREEN)
+			// 	r.DrawTriangleStrip3D(&tr[2], 3, r.GREEN)
+
+			r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
+			r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
+			r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)
+		}
+
+		// aaaaa := [3]vec3{{1, 1, 1}, {0, 0, 0}, {-1, -1, -1}}
+		// r.DrawTriangleStrip3D(&aaaaa[0], 3, r.GREEN)
+
+		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
+
 		draw_gizmo()
 	}
 	r.EndMode3D()
@@ -227,37 +194,11 @@ draw_fps :: proc() {
 	)
 }
 
-update_cam :: proc(dt: f32) {
-	//free camera with moving on arrows
-	//raylib UpdateCamera src:  https://github.com/raysan5/raylib/blob/5b0a799769da9a2ebc662d4aab1f31cf85882c56/src/rcamera.h#L445
-
-	cam_speed: f32 = 10
-
-	if r.IsKeyDown(.UP) { 	//forward
-		r.CameraMoveForward(&cam, cam_speed * dt, moveInWorldPlane = false)
+turn :: proc() {
+	if r.IsKeyDown(.A) {
+		actor.model.transform *= r.MatrixRotateY(actor.rot_speed * r.DEG2RAD)
 	}
-	if r.IsKeyDown(.DOWN) { 	//backward
-		r.CameraMoveForward(&cam, -cam_speed * dt, moveInWorldPlane = false)
+	if r.IsKeyDown(.D) {
+		actor.model.transform *= r.MatrixRotateY(-actor.rot_speed * r.DEG2RAD)
 	}
-	if r.IsKeyDown(.LEFT) {
-		r.CameraMoveRight(&cam, -cam_speed * dt, moveInWorldPlane = false)
-	}
-	if r.IsKeyDown(.RIGHT) {
-		r.CameraMoveRight(&cam, cam_speed * dt, moveInWorldPlane = false)
-	}
-
-	//mouse
-	//pitch, yaw, roll -> тангаж, курс, крен
-	cam_rot_speed: f32 = 0.25
-	mouse_pos_delta: vec2 = r.GetMouseDelta()
-
-	r.CameraPitch(
-		&cam,
-		-mouse_pos_delta.y * cam_rot_speed * dt,
-		lockView = false,
-		rotateAroundTarget = false,
-		rotateUp = false,
-	)
-	r.CameraYaw(&cam, -mouse_pos_delta.x * cam_rot_speed * dt, rotateAroundTarget = true)
-	r.CameraMoveToTarget(&cam, -r.GetMouseWheelMove())	//zoom
 }
