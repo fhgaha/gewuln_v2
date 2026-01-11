@@ -121,12 +121,23 @@ handle_walk :: proc(dt: f32) {
 	input_dir := f32(input_dir()) //-1, 0 or 1
 	// vel: vec3 = input_dir * actor.speed * dt * FORWARD
 	vel: vec3 = input_dir * actor.speed * dt * actor_dir(&actor)
+	actor_pos_cashed := actor.pos
 	actor.pos += vel
-	// actor.model.transform *= r.MatrixTranslate(vel.x, vel.y, vel.z)
 
 	//translate actor bounding box
+	bb_min_cashed := actor.bounding_box_glob.min
+	bb_max_cashed := actor.bounding_box_glob.max
+
 	actor.bounding_box_glob.min = actor.bounding_box_loc.min + actor.pos
 	actor.bounding_box_glob.max = actor.bounding_box_loc.max + actor.pos
+
+	inside_walk_area := actor_inside_walk_area(&actor, walk_area_tris[:])
+	fmt.println(inside_walk_area)
+	if !inside_walk_area {
+		actor.pos = actor_pos_cashed
+		actor.bounding_box_glob.min = bb_min_cashed
+		actor.bounding_box_glob.max = bb_max_cashed
+	}
 
 	// fmt.println("vel len: ", r.Vector3Length(velocity))
 	should_move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
@@ -150,6 +161,25 @@ handle_interact :: proc() {
 		actor.state = .IDLE
 		fmt.println("handle_idle")
 	}
+}
+
+actor_inside_walk_area :: proc(actor: ^Actor, walk_area_tris: []tri3) -> bool {
+	bb_min := actor.bounding_box_glob.min
+	bb_max := actor.bounding_box_glob.max
+	bb_pts: [4]vec2 = square_points_2d(to_vec2(bb_min), to_vec2(bb_max))
+
+	walk_area_tris_2d: [dynamic]tri2
+	for t in walk_area_tris {
+		t2: tri2 = {to_vec2(t[0]), to_vec2(t[1]), to_vec2(t[2])}
+		append(&walk_area_tris_2d, t2)
+	}
+
+	pt0_intersects := check_collision_point_tris(bb_pts[0], walk_area_tris_2d[:])
+	pt1_intersects := check_collision_point_tris(bb_pts[1], walk_area_tris_2d[:])
+	pt2_intersects := check_collision_point_tris(bb_pts[2], walk_area_tris_2d[:])
+	pt3_intersects := check_collision_point_tris(bb_pts[3], walk_area_tris_2d[:])
+
+	return pt0_intersects && pt1_intersects && pt2_intersects && pt3_intersects
 }
 
 
@@ -192,4 +222,3 @@ update_actor_anim :: proc(actor: ^Actor) {
 	animator.anim_cur_frame = (animator.anim_cur_frame + 1) % anim.frameCount
 	r.UpdateModelAnimation(actor.model, anim, animator.anim_cur_frame)
 }
-

@@ -34,20 +34,16 @@ square_points_2d :: proc(min, max: vec2) -> [4]vec2 {
 	}
 }
 
-check_collision_rectangle_triangles :: proc(rect: [4]vec2, triangles: []tri2) -> bool {
-	for t in triangles {
-		// t2d: [3]vec2 = {to_vec2(t[0]), to_vec2(t[1]), to_vec2(t[2])}
-		intersecting :=
-			r.CheckCollisionPointTriangle(rect[0], t[0], t[1], t[2]) ||
-			r.CheckCollisionPointTriangle(rect[1], t[0], t[1], t[2]) ||
-			r.CheckCollisionPointTriangle(rect[2], t[0], t[1], t[2]) ||
-			r.CheckCollisionPointTriangle(rect[3], t[0], t[1], t[2])
+check_collision_point_tris :: proc(point: vec2, tris: []tri2) -> bool {
+	for t in tris {
+		intersecting := r.CheckCollisionPointTriangle(point, t[0], t[1], t[2])
 		if intersecting {
 			return true
 		}
 	}
 	return false
 }
+
 
 
 //meshes
