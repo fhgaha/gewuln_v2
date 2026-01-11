@@ -44,6 +44,25 @@ check_collision_point_tris :: proc(point: vec2, tris: []tri2) -> bool {
 	return false
 }
 
+bounding_box_inside_walk_area :: proc(
+	bounding_box: r.BoundingBox,
+	walk_area_tris: []tri3,
+) -> bool {
+	bb_pts: [4]vec2 = square_points_2d(to_vec2(bounding_box.min), to_vec2(bounding_box.max))
+
+	walk_area_tris_2d: [dynamic]tri2
+	for t in walk_area_tris {
+		t2: tri2 = {to_vec2(t[0]), to_vec2(t[1]), to_vec2(t[2])}
+		append(&walk_area_tris_2d, t2)
+	}
+
+	pt0_intersects := check_collision_point_tris(bb_pts[0], walk_area_tris_2d[:])
+	pt1_intersects := check_collision_point_tris(bb_pts[1], walk_area_tris_2d[:])
+	pt2_intersects := check_collision_point_tris(bb_pts[2], walk_area_tris_2d[:])
+	pt3_intersects := check_collision_point_tris(bb_pts[3], walk_area_tris_2d[:])
+
+	return pt0_intersects && pt1_intersects && pt2_intersects && pt3_intersects
+}
 
 
 //meshes
