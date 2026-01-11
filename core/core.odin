@@ -51,28 +51,7 @@ main :: proc() {
 	walk_area_path: cstring = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
 	walk_area_model = r.LoadModel(walk_area_path)
 	defer r.UnloadModel(walk_area_model)
-
-
-	for &m in walk_area_model.meshes[:walk_area_model.meshCount] {
-		cntr := 0
-		a_tri: tri
-		
-		//vertices are unique, each of them has format of [3]f32
-		//indices are triangle indices, pointing to those vertices.
-		for idx, i in m.indices[:m.triangleCount * 3] {
-			//idx points where the thing start, then vertex has 3 components. so we get those 3 f32 numbers 
-			//then skip three numbers in the next cycle
-			vert := vec3{m.vertices[idx * 3], m.vertices[idx * 3 + 1], m.vertices[idx * 3 + 2]}
-			a_tri[cntr] = vert
-			cntr += 1
-
-			if cntr == 3 {
-				append(&walk_area_tris, a_tri)
-				cntr = 0
-			}
-		}
-	}
-
+	extract_tris(&walk_area_model, &walk_area_tris)
 
 	target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	defer r.UnloadRenderTexture(target)
@@ -154,12 +133,6 @@ render_3d_scene :: proc() {
 
 		// fmt.println("walkareatris amnt: ", len(walk_area_tris))
 		for &tr, i in walk_area_tris {
-			// fmt.println(i, ": ", tr[0], tr[1], tr[2])
-			// r.DrawTriangle3D(tr[0], tr[1], tr[2], r.RED)
-			// 	r.DrawTriangleStrip3D(&tr[0], 3, r.GREEN)
-			// 	r.DrawTriangleStrip3D(&tr[1], 3, r.GREEN)
-			// 	r.DrawTriangleStrip3D(&tr[2], 3, r.GREEN)
-
 			r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
 			r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
 			r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)

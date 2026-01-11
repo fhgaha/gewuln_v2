@@ -86,7 +86,7 @@ actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 }
 
 
-//states
+//actor states
 input_dir :: proc() -> i32 {
 	input_dir: i32
 	if r.IsKeyDown(.W) {
@@ -193,12 +193,3 @@ update_actor_anim :: proc(actor: ^Actor) {
 	r.UpdateModelAnimation(actor.model, anim, animator.anim_cur_frame)
 }
 
-
-//math
-to_vec4 :: proc(v: vec3) -> vec4 {
-	return vec4{v.x, v.y, v.z, 1}
-}
-
-to_vec3 :: proc(v: vec4) -> vec3 {
-	return vec3{v.x, v.y, v.z}
-}
