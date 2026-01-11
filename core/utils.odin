@@ -4,31 +4,67 @@ import r "vendor:raylib"
 
 
 //math
+to_vec2 :: proc(v: vec3) -> vec2 {
+	return vec2{v.x, v.z}
+}
+
+to_vec3 :: proc {
+	vec2_to_vec3,
+	vec4_to_vec3,
+}
+
+vec2_to_vec3 :: proc(v: vec2) -> vec3 {
+	return vec3{v.x, 0, v.y}
+}
+
+vec4_to_vec3 :: proc(v: vec4) -> vec3 {
+	return vec3{v.x, v.y, v.z}
+}
+
 to_vec4 :: proc(v: vec3) -> vec4 {
 	return vec4{v.x, v.y, v.z, 1}
 }
 
-to_vec3 :: proc(v: vec4) -> vec3 {
-	return vec3{v.x, v.y, v.z}
+square_points_2d :: proc(min, max: vec2) -> [4]vec2 {
+	return {
+		min, // bottom-left
+		{max.x, min.y}, // bottom-right
+		max, // top-right
+		{min.x, max.y}, // top-left
+	}
 }
 
+check_collision_rectangle_triangles :: proc(rect: [4]vec2, triangles: []tri2) -> bool {
+	for t in triangles {
+		// t2d: [3]vec2 = {to_vec2(t[0]), to_vec2(t[1]), to_vec2(t[2])}
+		intersecting :=
+			r.CheckCollisionPointTriangle(rect[0], t[0], t[1], t[2]) ||
+			r.CheckCollisionPointTriangle(rect[1], t[0], t[1], t[2]) ||
+			r.CheckCollisionPointTriangle(rect[2], t[0], t[1], t[2]) ||
+			r.CheckCollisionPointTriangle(rect[3], t[0], t[1], t[2])
+		if intersecting {
+			return true
+		}
+	}
+	return false
+}
+
+
 //meshes
-extract_tris :: proc(model: ^r.Model, out: ^[dynamic]tri) {
-	tris: [dynamic]tri
+extract_tris :: proc(model: ^r.Model, out: ^[dynamic]tri3) {
+	tris: [dynamic]tri3
 	defer delete(tris)
 
 	for &m in model.meshes[:model.meshCount] {
 		clear(&tris)
 		extract_tris_from_mesh(&m, &tris)
-		for t in tris {
-			append(out, t)
-		}
+		append(out, ..tris[:])
 	}
 }
 
-extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri) {
+extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri3) {
 	cntr := 0
-	a_tri: tri
+	a_tri: tri3
 	//vertices are unique, each of them has format of [3]f32. indices are triangle indices, pointing to those vertices.
 	for idx in m.indices[:m.triangleCount * 3] {
 		//idx points where the thing start, then vertex has 3 components. so we get those 3 f32 numbers

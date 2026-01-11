@@ -6,7 +6,8 @@ vec2 :: [2]f32
 vec3 :: [3]f32
 vec4 :: [4]f32
 
-tri :: [3]vec3
+tri2 :: [3]vec2
+tri3 :: [3]vec3
 
 WINDOW_WIDTH :: 1280
 WINDOW_HEIGHT :: 720

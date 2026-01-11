@@ -1,6 +1,7 @@
 package core
 
 import "core:fmt"
+import "core:math/linalg"
 import r "vendor:raylib"
 
 font: r.Font
@@ -10,7 +11,7 @@ cam_mode: r.CameraMode
 room: r.Model
 actor: Actor
 walk_area_model: r.Model
-walk_area_tris: [dynamic]tri
+walk_area_tris: [dynamic]tri3
 
 small_resolution := false
 
@@ -82,6 +83,22 @@ main :: proc() {
 
 
 		//walk area
+		//intersection with area
+
+		//lower rect of actor bounding box
+		bb_min := actor.bounding_box_glob.min
+		bb_max := actor.bounding_box_glob.max
+		bb_pts: [4]vec2 = square_points_2d(to_vec2(bb_min), to_vec2(bb_max))
+
+		walk_area_tris_2d: [dynamic]tri2
+		for t in walk_area_tris {
+			t2: tri2 = {to_vec2(t[0]), to_vec2(t[1]), to_vec2(t[2])}
+			append(&walk_area_tris_2d, t2)
+		}
+
+		intersecting := check_collision_rectangle_triangles(bb_pts, walk_area_tris_2d[:])
+
+		fmt.println(intersecting)
 
 
 		r.BeginDrawing()
@@ -114,7 +131,6 @@ main :: proc() {
 
 		free_all(context.temp_allocator)
 	}
-
 
 	r.CloseWindow()
 }
