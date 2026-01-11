@@ -117,23 +117,73 @@ handle_idle :: proc() {
 handle_walk :: proc(dt: f32) {
 	play_anim(&actor.animator, .WALK)
 	turn()
-	input_dir := f32(input_dir()) //-1, 0 or 1
-	// vel: vec3 = input_dir * actor.speed * dt * FORWARD
-	vel: vec3 = input_dir * actor.speed * dt * actor_dir(&actor)
+	input_dir := f32(input_dir())
+	desired_vel: vec3 = input_dir * actor.speed * dt * actor_dir(&actor)
 	
-	new_bb := r.BoundingBox{
-		min = actor.bounding_box_glob.min + vel,
-		max = actor.bounding_box_glob.max + vel
+	// Try the movement with sliding
+	slide_velocity: vec3
+	remaining_vel := desired_vel
+	max_slide_iterations :: 3
+	
+	for i in 0..<max_slide_iterations {
+		if remaining_vel == {0, 0, 0} do break
+		
+		new_bb := r.BoundingBox{
+			min = actor.bounding_box_glob.min + remaining_vel,
+			max = actor.bounding_box_glob.max + remaining_vel
+		}
+		
+		if bounding_box_inside_walk_area(new_bb, walk_area_tris[:]) {
+			slide_velocity = remaining_vel
+			break
+		}
+		
+		// Find the nearest axis that causes collision
+		// Try X component
+		vel_x := vec3{remaining_vel.x, 0, 0}
+		bb_x := r.BoundingBox{
+			min = actor.bounding_box_glob.min + vel_x,
+			max = actor.bounding_box_glob.max + vel_x
+		}
+		
+		// Try Z component
+		vel_z := vec3{0, 0, remaining_vel.z}
+		bb_z := r.BoundingBox{
+			min = actor.bounding_box_glob.min + vel_z,
+			max = actor.bounding_box_glob.max + vel_z
+		}
+		
+		x_valid := bounding_box_inside_walk_area(bb_x, walk_area_tris[:])
+		z_valid := bounding_box_inside_walk_area(bb_z, walk_area_tris[:])
+		
+		if x_valid && z_valid {
+			// Both axes are valid, move along both
+			slide_velocity += remaining_vel
+			break
+		} else if x_valid {
+			slide_velocity += vel_x
+			remaining_vel.z = 0
+		} else if z_valid {
+			slide_velocity += vel_z
+			remaining_vel.x = 0
+		} else {
+			// Try reduced movement
+			remaining_vel *= 0.5
+		}
 	}
-	inside_walk_area := bounding_box_inside_walk_area(new_bb, walk_area_tris[:])
-	if inside_walk_area{
-		actor.pos += vel
-		actor.bounding_box_glob = new_bb
+	
+	// Apply final slide velocity
+	if slide_velocity != {0, 0, 0} {
+		actor.pos += slide_velocity
+		actor.bounding_box_glob = r.BoundingBox{
+			min = actor.bounding_box_glob.min + slide_velocity,
+			max = actor.bounding_box_glob.max + slide_velocity
+		}
 	}
-
-	// fmt.println("vel len: ", r.Vector3Length(velocity))
+	
+	// State transitions (same as before)
 	should_move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
-	is_moving := r.Vector3Length(vel) != 0
+	is_moving := input_dir != 0
 	idle_cond := !should_move && !is_moving
 	if idle_cond {
 		actor.state = .IDLE
@@ -145,6 +195,7 @@ handle_walk :: proc(dt: f32) {
 		fmt.println("handle_interact")
 	}
 }
+
 
 handle_interact :: proc() {
 	play_anim(&actor.animator, .INTERACT)
