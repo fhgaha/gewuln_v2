@@ -56,13 +56,13 @@ main :: proc() {
 	for &m in walk_area_model.meshes[:walk_area_model.meshCount] {
 		cntr := 0
 		a_tri: tri
-
+		
+		//vertices are unique, each of them has format of [3]f32
+		//indices are triangle indices, pointing to those vertices.
 		for idx, i in m.indices[:m.triangleCount * 3] {
-			vert := vec3{
-				m.vertices[idx * 3], 
-				m.vertices[idx * 3 + 1], 
-				m.vertices[idx * 3 + 2],
-			}
+			//idx points where the thing start, then vertex has 3 components. so we get those 3 f32 numbers 
+			//then skip three numbers in the next cycle
+			vert := vec3{m.vertices[idx * 3], m.vertices[idx * 3 + 1], m.vertices[idx * 3 + 2]}
 			a_tri[cntr] = vert
 			cntr += 1
 
