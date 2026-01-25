@@ -114,6 +114,7 @@ handle_idle :: proc() {
 	}
 }
 
+
 handle_walk :: proc(dt: f32) {
 	input_dir := f32(input_dir())
 	play_anim(&actor.animator, input_dir == 0 ? .IDLE : .WALK)
@@ -140,61 +141,60 @@ handle_walk :: proc(dt: f32) {
 		actor.state = .IDLE
 		fmt.println("handle_idle")
 	}
-
-	slide :: proc(desired_dpos: vec3) -> vec3 {
-		remaining_dpos := desired_dpos
-		max_slide_iterations :: 3
-		dpos := desired_dpos
-
-		for i in 0 ..< max_slide_iterations {
-			if remaining_dpos == {0, 0, 0} do break
-
-			new_bb := r.BoundingBox {
-				min = actor.bounding_box_glob.min + remaining_dpos,
-				max = actor.bounding_box_glob.max + remaining_dpos,
-			}
-
-			if bounding_box_inside_walk_area(new_bb, walk_area_tris[:]) {
-				dpos = remaining_dpos
-				break
-			}
-
-			// Find the nearest axis that causes collision
-			// Try X component
-			rem_dpos_x := vec3{remaining_dpos.x, 0, 0}
-			bb_x := r.BoundingBox {
-				min = actor.bounding_box_glob.min + rem_dpos_x,
-				max = actor.bounding_box_glob.max + rem_dpos_x,
-			}
-
-			// Try Z component
-			rem_dpos_z := vec3{0, 0, remaining_dpos.z}
-			bb_z := r.BoundingBox {
-				min = actor.bounding_box_glob.min + rem_dpos_z,
-				max = actor.bounding_box_glob.max + rem_dpos_z,
-			}
-
-			x_valid := bounding_box_inside_walk_area(bb_x, walk_area_tris[:])
-			z_valid := bounding_box_inside_walk_area(bb_z, walk_area_tris[:])
-
-			if x_valid && z_valid {
-				dpos += remaining_dpos
-				break
-			} else if x_valid {
-				dpos += rem_dpos_x
-				remaining_dpos.z = 0
-			} else if z_valid {
-				dpos += rem_dpos_z
-				remaining_dpos.x = 0
-			} else {
-				remaining_dpos *= 0.5
-			}
-		}
-
-		return dpos
-	}
 }
 
+
+slide :: proc(desired_dpos: vec3) -> vec3 {
+	remaining_dpos := desired_dpos
+	max_slide_iterations :: 3
+	dpos := vec3{0, 0, 0}
+
+	for i in 0 ..< max_slide_iterations {
+		if remaining_dpos == {0, 0, 0} do break
+
+		new_bb := r.BoundingBox {
+			min = actor.bounding_box_glob.min + remaining_dpos,
+			max = actor.bounding_box_glob.max + remaining_dpos,
+		}
+
+		if bounding_box_inside_walk_area(new_bb, walk_area_tris[:]) {
+			dpos = remaining_dpos
+			break
+		}
+
+		// Try moving X component
+		rem_dpos_x := vec3{remaining_dpos.x, 0, 0}
+		bb_x := r.BoundingBox {
+			min = actor.bounding_box_glob.min + rem_dpos_x,
+			max = actor.bounding_box_glob.max + rem_dpos_x,
+		}
+
+		// Try moving Z component
+		rem_dpos_z := vec3{0, 0, remaining_dpos.z}
+		bb_z := r.BoundingBox {
+			min = actor.bounding_box_glob.min + rem_dpos_z,
+			max = actor.bounding_box_glob.max + rem_dpos_z,
+		}
+
+		x_valid := bounding_box_inside_walk_area(bb_x, walk_area_tris[:])
+		z_valid := bounding_box_inside_walk_area(bb_z, walk_area_tris[:])
+		
+		if x_valid && z_valid {
+			dpos += remaining_dpos
+			break
+		} else if x_valid {
+			dpos += rem_dpos_x
+			remaining_dpos.z = 0
+		} else if z_valid {
+			dpos += rem_dpos_z
+			remaining_dpos.x = 0
+		} else {
+			remaining_dpos *= 0.5
+		}
+	}
+
+	return dpos
+}
 
 handle_interact :: proc() {
 	play_anim(&actor.animator, .INTERACT)

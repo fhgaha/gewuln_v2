@@ -1,8 +1,15 @@
 package core
 
 import "core:fmt"
-import "core:math/linalg"
 import r "vendor:raylib"
+
+Flags :: enum {
+	SMALL_RESOLUTION,
+	SHOW_GIZMOS,
+}
+flags: [Flags]bool = #partial {
+	.SHOW_GIZMOS      = true,
+}
 
 font: r.Font
 cam: r.Camera3D
@@ -12,13 +19,6 @@ room: r.Model
 actor: Actor
 walk_area_model: r.Model
 walk_area_tris: [dynamic]tri3
-
-Flags :: enum {
-	SMALL_RESOLUTION,
-}
-flags: [Flags]bool = {
-	.SMALL_RESOLUTION = false,
-}
 
 
 main :: proc() {
@@ -50,7 +50,7 @@ main :: proc() {
 	)
 	assert(ok)
 
-	//room
+	//load the room scene and walk area separately
 	room_path: cstring = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
 	room = r.LoadModel(room_path)
 	defer r.UnloadModel(room)
@@ -60,8 +60,8 @@ main :: proc() {
 	defer r.UnloadModel(walk_area_model)
 	extract_tris(&walk_area_model, &walk_area_tris)
 
-	target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
-	defer r.UnloadRenderTexture(target)
+	render_target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
+	defer r.UnloadRenderTexture(render_target)
 
 
 	for !r.WindowShouldClose() {
@@ -69,9 +69,14 @@ main :: proc() {
 
 		//input
 		switch {
-		case r.IsKeyPressed(.R):
+		case r.IsKeyPressed(.ONE):
 			flags[.SMALL_RESOLUTION] = !flags[.SMALL_RESOLUTION]
+		case r.IsKeyPressed(.TWO):
+			flags[.SHOW_GIZMOS] = !flags[.SHOW_GIZMOS]
+		case r.IsKeyPressed(.THREE):
+		case r.IsKeyPressed(.FOUR):
 		}
+
 
 		switch actor.state {
 		case .IDLE:
@@ -88,24 +93,20 @@ main :: proc() {
 		update_cam(dt)
 
 
-		//walk area
-		//intersection with area
-
-
 		r.BeginDrawing()
 		{
 			r.ClearBackground(DARK)
 
 			switch flags[.SMALL_RESOLUTION] {
 			case true:
-				r.BeginTextureMode(target)
+				r.BeginTextureMode(render_target)
 				{
 					render_3d_scene()
 				}
 				r.EndTextureMode()
 
 				r.DrawTexturePro(
-					texture = target.texture,
+					texture = render_target.texture,
 					source = r.Rectangle{0, 0, RENDER_WIDTH, -RENDER_HEIGHT},
 					dest = r.Rectangle{0, 0, WINDOW_WIDTH, WINDOW_HEIGHT},
 					origin = vec2{0, 0},
@@ -132,17 +133,21 @@ render_3d_scene :: proc() {
 	r.BeginMode3D(cam)
 	{
 		r.DrawModel(room, vec3{0, 0, 0}, 1, r.GRAY)
-		r.DrawModelWires(walk_area_model, vec3{0, 0, 0}, 1, r.ORANGE)
+		if flags[.SHOW_GIZMOS] {
+			r.DrawModelWires(walk_area_model, vec3{0, 0, 0}, 1, r.ORANGE)
+		}
 		r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
 		// r.DrawModelWires(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
 
-		r.DrawBoundingBox(actor.bounding_box_glob, r.MAGENTA)
+		if flags[.SHOW_GIZMOS] {
+			r.DrawBoundingBox(actor.bounding_box_glob, r.MAGENTA)
 
-		// fmt.println("walkareatris amnt: ", len(walk_area_tris))
-		for &tr, i in walk_area_tris {
-			r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
-			r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
-			r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)
+			// fmt.println("walkareatris amnt: ", len(walk_area_tris))
+			for &tr in walk_area_tris {
+				r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
+				r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
+				r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)
+			}
 		}
 
 		// aaaaa := [3]vec3{{1, 1, 1}, {0, 0, 0}, {-1, -1, -1}}
@@ -150,7 +155,9 @@ render_3d_scene :: proc() {
 
 		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
 
-		draw_gizmo()
+		if flags[.SHOW_GIZMOS] {
+			draw_gizmo()
+		}
 	}
 	r.EndMode3D()
 }
