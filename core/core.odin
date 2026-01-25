@@ -13,7 +13,13 @@ actor: Actor
 walk_area_model: r.Model
 walk_area_tris: [dynamic]tri3
 
-small_resolution := false
+Flags :: enum {
+	SMALL_RESOLUTION,
+}
+flags: [Flags]bool = {
+	.SMALL_RESOLUTION = false,
+}
+
 
 main :: proc() {
 	//this raylib setup should be in top for some reason
@@ -64,7 +70,7 @@ main :: proc() {
 		//input
 		switch {
 		case r.IsKeyPressed(.R):
-			small_resolution = !small_resolution
+			flags[.SMALL_RESOLUTION] = !flags[.SMALL_RESOLUTION]
 		}
 
 		switch actor.state {
@@ -90,7 +96,7 @@ main :: proc() {
 		{
 			r.ClearBackground(DARK)
 
-			switch small_resolution {
+			switch flags[.SMALL_RESOLUTION] {
 			case true:
 				r.BeginTextureMode(target)
 				{
