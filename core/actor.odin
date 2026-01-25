@@ -100,8 +100,9 @@ input_dir :: proc() -> i32 {
 handle_idle :: proc() {
 	play_anim(&actor.animator, .IDLE)
 	turn()
-	walk_cond := input_dir() != 0
 
+	//state conditions	
+	walk_cond := input_dir() != 0
 	interact_tgr := get_interactable_colliding_actor(interactables[:], actor)
 	interact_tgr_found := interact_tgr != {}
 	interact_cond := r.IsKeyPressed(.E) && interact_tgr_found
@@ -136,7 +137,6 @@ handle_walk :: proc(dt: f32) {
 	should_move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
 	is_moving := input_dir != 0
 	idle_cond := !should_move && !is_moving
-
 	switch {
 	case interact_cond:
 		actor.state = .INTERACT
@@ -202,7 +202,8 @@ handle_walk :: proc(dt: f32) {
 
 handle_interact :: proc() {
 	play_anim(&actor.animator, .INTERACT)
-
+	
+	//state conditions	
 	walk_cond := last_frame_reached(&actor.animator) && input_dir() != 0
 	idle_cond := last_frame_reached(&actor.animator)
 	switch {
