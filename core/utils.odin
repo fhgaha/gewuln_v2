@@ -26,7 +26,7 @@ to_vec4 :: proc(v: vec3) -> vec4 {
 	return vec4{v.x, v.y, v.z, 1}
 }
 
-pos_from_mat4 :: proc(m: r.Matrix) -> vec3 {
+pos_from_transform :: proc(m: r.Matrix) -> vec3 {
 	return vec3{m[0, 3], m[1, 3], m[2, 3]}
 }
 

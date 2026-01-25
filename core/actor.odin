@@ -65,7 +65,7 @@ create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool 
 }
 
 actor_pos :: proc(actor: ^Actor) -> vec3 {
-	return pos_from_mat4(actor.model.transform)
+	return pos_from_transform(actor.model.transform)
 }
 
 actor_dir :: proc(actor: ^Actor) -> vec3 {
@@ -100,9 +100,11 @@ input_dir :: proc() -> i32 {
 handle_idle :: proc() {
 	play_anim(&actor.animator, .IDLE)
 	turn()
-	input_dir := input_dir()
-	walk_cond := input_dir != 0
-	interact_cond := r.IsKeyPressed(.E)
+	walk_cond := input_dir() != 0
+
+	interact_tgr := get_interactable_colliding_actor(interactables[:], actor)
+	interact_tgr_found := interact_tgr != {}
+	interact_cond := r.IsKeyPressed(.E) && interact_tgr_found
 	switch {
 	case walk_cond:
 		actor.state = .WALK
@@ -126,16 +128,15 @@ handle_walk :: proc(dt: f32) {
 		min = actor.bounding_box_glob.min + dpos,
 		max = actor.bounding_box_glob.max + dpos,
 	}
-	
-	//interactables
-	r.CheckCollisionBoxes(actor.bounding_box_glob, 
-	r.GetModelBoundingBox(interactable_h_half))
 
-	// State transitions (same as before)
-	interact_cond := r.IsKeyPressed(.E)
+	// State transitions
+	interact_tgr := get_interactable_colliding_actor(interactables[:], actor)
+	interact_tgr_found := interact_tgr != {}
+	interact_cond := interact_tgr_found && r.IsKeyPressed(.E)
 	should_move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
 	is_moving := input_dir != 0
 	idle_cond := !should_move && !is_moving
+
 	switch {
 	case interact_cond:
 		actor.state = .INTERACT
@@ -144,66 +145,87 @@ handle_walk :: proc(dt: f32) {
 		actor.state = .IDLE
 		fmt.println("handle_idle")
 	}
-}
 
+	slide :: proc(desired_dpos: vec3) -> vec3 {
+		remaining_dpos := desired_dpos
+		max_slide_iterations :: 3
+		dpos := vec3{0, 0, 0}
 
-slide :: proc(desired_dpos: vec3) -> vec3 {
-	remaining_dpos := desired_dpos
-	max_slide_iterations :: 3
-	dpos := vec3{0, 0, 0}
+		for i in 0 ..< max_slide_iterations {
+			if remaining_dpos == {0, 0, 0} do break
 
-	for i in 0 ..< max_slide_iterations {
-		if remaining_dpos == {0, 0, 0} do break
+			new_bb := r.BoundingBox {
+				min = actor.bounding_box_glob.min + remaining_dpos,
+				max = actor.bounding_box_glob.max + remaining_dpos,
+			}
 
-		new_bb := r.BoundingBox {
-			min = actor.bounding_box_glob.min + remaining_dpos,
-			max = actor.bounding_box_glob.max + remaining_dpos,
+			if bounding_box_inside_walk_area(new_bb, walk_area_tris[:]) {
+				dpos = remaining_dpos
+				break
+			}
+
+			// Try moving X component
+			rem_dpos_x := vec3{remaining_dpos.x, 0, 0}
+			bb_x := r.BoundingBox {
+				min = actor.bounding_box_glob.min + rem_dpos_x,
+				max = actor.bounding_box_glob.max + rem_dpos_x,
+			}
+
+			// Try moving Z component
+			rem_dpos_z := vec3{0, 0, remaining_dpos.z}
+			bb_z := r.BoundingBox {
+				min = actor.bounding_box_glob.min + rem_dpos_z,
+				max = actor.bounding_box_glob.max + rem_dpos_z,
+			}
+
+			x_valid := bounding_box_inside_walk_area(bb_x, walk_area_tris[:])
+			z_valid := bounding_box_inside_walk_area(bb_z, walk_area_tris[:])
+
+			if x_valid && z_valid {
+				dpos += remaining_dpos
+				break
+			} else if x_valid {
+				dpos += rem_dpos_x
+				remaining_dpos.z = 0
+			} else if z_valid {
+				dpos += rem_dpos_z
+				remaining_dpos.x = 0
+			} else {
+				remaining_dpos *= 0.5
+			}
 		}
 
-		if bounding_box_inside_walk_area(new_bb, walk_area_tris[:]) {
-			dpos = remaining_dpos
-			break
-		}
-
-		// Try moving X component
-		rem_dpos_x := vec3{remaining_dpos.x, 0, 0}
-		bb_x := r.BoundingBox {
-			min = actor.bounding_box_glob.min + rem_dpos_x,
-			max = actor.bounding_box_glob.max + rem_dpos_x,
-		}
-
-		// Try moving Z component
-		rem_dpos_z := vec3{0, 0, remaining_dpos.z}
-		bb_z := r.BoundingBox {
-			min = actor.bounding_box_glob.min + rem_dpos_z,
-			max = actor.bounding_box_glob.max + rem_dpos_z,
-		}
-
-		x_valid := bounding_box_inside_walk_area(bb_x, walk_area_tris[:])
-		z_valid := bounding_box_inside_walk_area(bb_z, walk_area_tris[:])
-		
-		if x_valid && z_valid {
-			dpos += remaining_dpos
-			break
-		} else if x_valid {
-			dpos += rem_dpos_x
-			remaining_dpos.z = 0
-		} else if z_valid {
-			dpos += rem_dpos_z
-			remaining_dpos.x = 0
-		} else {
-			remaining_dpos *= 0.5
-		}
+		return dpos
 	}
-
-	return dpos
 }
+
 
 handle_interact :: proc() {
 	play_anim(&actor.animator, .INTERACT)
+
+	walk_cond := last_frame_reached(&actor.animator) && input_dir() != 0
 	idle_cond := last_frame_reached(&actor.animator)
-	if idle_cond {
+	switch {
+	case walk_cond:
+		actor.state = .WALK
+		fmt.println("handle_idle")
+	case idle_cond:
 		actor.state = .IDLE
 		fmt.println("handle_idle")
 	}
+}
+
+
+get_interactable_colliding_actor :: proc(
+	interactables: []Interactable,
+	actor: Actor,
+) -> Interactable {
+	for &intr in interactables {
+		col := r.CheckCollisionBoxes(actor.bounding_box_glob, r.GetModelBoundingBox(intr.model))
+		if (col) {
+			return intr
+		}
+	}
+
+	return {}
 }

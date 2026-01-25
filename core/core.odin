@@ -20,10 +20,7 @@ room: r.Model
 actor: Actor
 walk_area_model: r.Model
 walk_area_tris: [dynamic]tri3
-interactable_h_half: r.Model
-interactable_h_2: r.Model
-
-interactables: [dynamic]r.Model
+interactables: [dynamic]Interactable
 
 main :: proc() {
 	//this raylib setup should be in top for some reason
@@ -55,21 +52,38 @@ main :: proc() {
 	assert(ok)
 
 	//load the room scene and walk area separately
-	room_path: cstring = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
-	room = r.LoadModel(room_path)
+	room = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/test_rooms.glb")
 	defer r.UnloadModel(room)
 
-	walk_area_path: cstring = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
-	walk_area_model = r.LoadModel(walk_area_path)
+	walk_area_model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/walk_area.glb")
 	defer r.UnloadModel(walk_area_model)
 	extract_tris(&walk_area_model, &walk_area_tris)
 
 	//interactables
-	append(&interactables, r.LoadModel("assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"))
-	append(&interactables, r.LoadModel("assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"))
+	//TODO defer delete, unload
+	append(&interactables, Interactable {
+		name = "interactable_h_half",
+		model = r.LoadModel(
+			"assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb",
+		),
+		action = proc(intr: Interactable) {
+			fmt.println("action of interactable_h_half")
+		},
+	})
+	append(&interactables, Interactable {
+		name = "interactable_h_2",
+		model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"),
+		action = proc(intr: Interactable) {
+			fmt.println("action of interactable_h_2")
+		},
+	})
 
-	defer for intr in interactables {
-		r.UnloadModel(intr)
+
+	test_intr := Interactable {
+		name  = "test_name",
+		model = r.LoadModel(
+			"assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb",
+		),
 	}
 
 
@@ -148,10 +162,8 @@ render_3d_scene :: proc() {
 		r.DrawModel(room, vec3{0, 0, 0}, 1, r.GRAY)
 		if flags[.SHOW_GIZMOS] {
 			r.DrawModelWires(walk_area_model, vec3{0, 0, 0}, 1, r.ORANGE)
-		}
 
-		for intr in interactables {
-			r.DrawModelWires(intr, pos_from_mat4(intr.transform), 1, r.RED)
+			draw_interactables()
 		}
 
 		r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
