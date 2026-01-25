@@ -65,8 +65,7 @@ create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool 
 }
 
 actor_pos :: proc(actor: ^Actor) -> vec3 {
-	m: r.Matrix = actor.model.transform
-	return vec3{m[0, 3], m[1, 3], m[2, 3]}
+	return pos_from_mat4(actor.model.transform)
 }
 
 actor_dir :: proc(actor: ^Actor) -> vec3 {
@@ -127,6 +126,10 @@ handle_walk :: proc(dt: f32) {
 		min = actor.bounding_box_glob.min + dpos,
 		max = actor.bounding_box_glob.max + dpos,
 	}
+	
+	//interactables
+	r.CheckCollisionBoxes(actor.bounding_box_glob, 
+	r.GetModelBoundingBox(interactable_h_half))
 
 	// State transitions (same as before)
 	interact_cond := r.IsKeyPressed(.E)

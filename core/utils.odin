@@ -26,6 +26,10 @@ to_vec4 :: proc(v: vec3) -> vec4 {
 	return vec4{v.x, v.y, v.z, 1}
 }
 
+pos_from_mat4 :: proc(m: r.Matrix) -> vec3 {
+	return vec3{m[0, 3], m[1, 3], m[2, 3]}
+}
+
 square_points_2d :: proc(min, max: vec2) -> [4]vec2 {
 	return {
 		min, // bottom-left
@@ -61,11 +65,6 @@ bounding_box_inside_walk_area :: proc(
 	pt1_intersects := check_collision_point_tris(bb_pts[1], walk_area_tris_2d[:])
 	pt2_intersects := check_collision_point_tris(bb_pts[2], walk_area_tris_2d[:])
 	pt3_intersects := check_collision_point_tris(bb_pts[3], walk_area_tris_2d[:])
-
-	// fmt.println("0: ", pt0_intersects)
-	// fmt.println("1: ", pt1_intersects)
-	// fmt.println("2: ", pt2_intersects)
-	// fmt.println("3: ", pt3_intersects)
 
 	return pt0_intersects && pt1_intersects && pt2_intersects && pt3_intersects
 }

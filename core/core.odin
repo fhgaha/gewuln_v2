@@ -1,6 +1,7 @@
 package core
 
 import "core:fmt"
+import "core:math/linalg"
 import r "vendor:raylib"
 
 Flags :: enum {
@@ -8,7 +9,7 @@ Flags :: enum {
 	SHOW_GIZMOS,
 }
 flags: [Flags]bool = #partial {
-	.SHOW_GIZMOS      = true,
+	.SHOW_GIZMOS = true,
 }
 
 font: r.Font
@@ -19,7 +20,10 @@ room: r.Model
 actor: Actor
 walk_area_model: r.Model
 walk_area_tris: [dynamic]tri3
+interactable_h_half: r.Model
+interactable_h_2: r.Model
 
+interactables: [dynamic]r.Model
 
 main :: proc() {
 	//this raylib setup should be in top for some reason
@@ -59,6 +63,15 @@ main :: proc() {
 	walk_area_model = r.LoadModel(walk_area_path)
 	defer r.UnloadModel(walk_area_model)
 	extract_tris(&walk_area_model, &walk_area_tris)
+
+	//interactables
+	append(&interactables, r.LoadModel("assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"))
+	append(&interactables, r.LoadModel("assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"))
+
+	defer for intr in interactables {
+		r.UnloadModel(intr)
+	}
+
 
 	render_target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	defer r.UnloadRenderTexture(render_target)
@@ -136,22 +149,23 @@ render_3d_scene :: proc() {
 		if flags[.SHOW_GIZMOS] {
 			r.DrawModelWires(walk_area_model, vec3{0, 0, 0}, 1, r.ORANGE)
 		}
+
+		for intr in interactables {
+			r.DrawModelWires(intr, pos_from_mat4(intr.transform), 1, r.RED)
+		}
+
 		r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
 		// r.DrawModelWires(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
 
 		if flags[.SHOW_GIZMOS] {
 			r.DrawBoundingBox(actor.bounding_box_glob, r.MAGENTA)
 
-			// fmt.println("walkareatris amnt: ", len(walk_area_tris))
 			for &tr in walk_area_tris {
 				r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
 				r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
 				r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)
 			}
 		}
-
-		// aaaaa := [3]vec3{{1, 1, 1}, {0, 0, 0}, {-1, -1, -1}}
-		// r.DrawTriangleStrip3D(&aaaaa[0], 3, r.GREEN)
 
 		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
 
