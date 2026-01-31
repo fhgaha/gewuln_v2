@@ -1,8 +1,11 @@
 package core
 
+import "core:encoding/json"
 import "core:fmt"
+import "core:mem"
+import "core:os"
+import "core:strings"
 import r "vendor:raylib"
-
 
 //math
 to_vec2 :: proc(v: vec3) -> vec2 {
@@ -98,4 +101,54 @@ extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri3) {
 			cntr = 0
 		}
 	}
+}
+
+
+load_glb_custom_properties :: proc(glb_path: string) {
+	json_string := get_json_chunk_from_glb(glb_path)
+	// json_string := "{\"actor_pos\":true}"
+	fmt.println(json_string)
+
+	//temp allocator
+	temp_allocator := mem.Scratch{}
+	mem.scratch_allocator_init(&temp_allocator, len(json_string))
+	context.allocator = mem.scratch_allocator(&temp_allocator)
+	defer mem.scratch_allocator_destroy(&temp_allocator)
+
+
+	_, err := json.parse_string(json_string, .Bitsquid, parse_integers = true)
+	fmt.println("json error: ", err)
+	assert(err == .None)
+	// defer json.destroy_value(json_data)
+
+	// //json_data is union type. one of the types is json.Object. "convert json_data to json.Object"
+	// root := json_data.(json.Object)
+
+	// nodes := root["nodes"].(json.Object)
+
+	// for a, b in nodes{
+	// 	fmt.println("ass", a)
+	// }
+
+
+}
+
+
+get_json_chunk_from_glb :: proc(glb_path: string) -> string {
+	data, ok := os.read_entire_file(glb_path)
+	assert(ok)
+	defer delete(data)
+
+	// 4 bytes "glTF", 4 bytes version, 4 bytes glb length, 4 bytes json chunk length, 4 bytes "JSON"
+
+	chunk_length := (^u32)(raw_data(data[12:]))^
+	// chunk_type := (^u32)(raw_data(data[16:]))^
+
+	res, err := strings.clone_from_bytes(data[16:20])
+	assert(res == "JSON" && err == .None)
+
+	json_data := data[20:20 + chunk_length]
+	json_string := strings.clone_from_bytes(json_data)
+
+	return json_string
 }

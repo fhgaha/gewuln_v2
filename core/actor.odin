@@ -151,7 +151,7 @@ handle_walk :: proc(dt: f32) {
 		max_slide_iterations :: 3
 		dpos := vec3{0, 0, 0}
 
-		for i in 0 ..< max_slide_iterations {
+		for _ in 0 ..< max_slide_iterations {
 			if remaining_dpos == {0, 0, 0} do break
 
 			new_bb := r.BoundingBox {

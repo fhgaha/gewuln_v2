@@ -24,3 +24,33 @@
 	of the Principled BSDF shader.
 
 --blener fast export glb: F4->e->l
+
+
+
+
+PRR S2 6-8-6 ST locomotive
+ — 
+Вчера, в 23:22
+hello. i import models from blender, glb files. i want to be able to use custom properties. like for example blender object Plain Axis with custom property actor_pos as boolean. i want to set my actor position to this object position on start if it has property actor_pos.
+NitroPlum
+ — 
+Вчера, в 23:33
+Gltf file format includes the custom props
+Znarf
+ — 
+Вчера, в 23:34
+you have to tick the option in the blender gltf exporter and then it will be in the "extras" field of the node
+PRR S2 6-8-6 ST locomotive
+ — 
+Вчера, в 23:34
+so i have to parse it twice? oh well
+i mean once raylib does it for me and once i do it manually
+ok thank you (:
+Znarf
+ — 
+Вчера, в 23:37
+you can use vendor:cgltf, everything node (and accessor, sample etc) has an extras field, you will have to parse the json yourself tho 
+NitroPlum
+ — 
+Вчера, в 23:38
+U can #load the file and pass the memory to cgltf 

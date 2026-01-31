@@ -1,6 +1,5 @@
 package core
 
-import "core:fmt"
 import r "vendor:raylib"
 
 Interactable :: struct {

@@ -1,7 +1,6 @@
 package core
 
 import "core:fmt"
-import "core:math/linalg"
 import r "vendor:raylib"
 
 Flags :: enum {
@@ -55,6 +54,13 @@ main :: proc() {
 	room = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/test_rooms.glb")
 	defer r.UnloadModel(room)
 
+
+	//get metadata
+	load_glb_custom_properties("assets/models/test_rooms/export/test_floor/glb/test_rooms.glb")
+	
+	
+
+
 	walk_area_model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/walk_area.glb")
 	defer r.UnloadModel(walk_area_model)
 	extract_tris(&walk_area_model, &walk_area_tris)
@@ -77,13 +83,8 @@ main :: proc() {
 			fmt.println("action of interactable_h_2")
 		},
 	})
-
-
-	test_intr := Interactable {
-		name  = "test_name",
-		model = r.LoadModel(
-			"assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb",
-		),
+	defer for intr in interactables {
+		r.UnloadModel(intr.model)
 	}
 
 
