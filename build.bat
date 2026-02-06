@@ -8,11 +8,10 @@ odin build . -out:build/gewuln.exe -debug && (
     :: /D - Copies only source files newer than destination files
     :: /Y - Suppresses prompting to confirm you want to overwrite
     :: /I - Assumes destination is a folder if it doesn't exist
-	xcopy "assets" "build\assets" /S /D /Y /I > nul (
+	xcopy "assets" "build\assets" /S /D /Y /I > nul && (
 		call "build/gewuln.exe"
 	) || (
 		echo !!failed to copy
 		pause
 	)
 )
-
