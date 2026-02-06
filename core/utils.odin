@@ -106,28 +106,18 @@ extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri3) {
 
 load_glb_custom_properties :: proc(glb_path: string) {
 	json_string := get_json_chunk_from_glb(glb_path)
-	// json_string := "{\"actor_pos\":true}"
-	fmt.println(json_string)
-
-	//temp allocator
-	temp_allocator := mem.Scratch{}
-	mem.scratch_allocator_init(&temp_allocator, len(json_string))
-	context.allocator = mem.scratch_allocator(&temp_allocator)
-	defer mem.scratch_allocator_destroy(&temp_allocator)
-
-
-	_, err := json.parse_string(json_string, .Bitsquid, parse_integers = true)
-	fmt.println("json error: ", err)
+	json_data, err := json.parse_string(json_string, .Bitsquid, parse_integers = true)
 	assert(err == .None)
-	// defer json.destroy_value(json_data)
+	defer json.destroy_value(json_data)
 
-	// //json_data is union type. one of the types is json.Object. "convert json_data to json.Object"
-	// root := json_data.(json.Object)
+	// if root, ok := json_data.(json.Object); ok {
+	// 	if nodes_val, ok := root["nodes"].(json.Array); ok {
+	// 		for node_val in nodes_val {
+	// 			if node, ok := node_val.(json.Object); ok {
 
-	// nodes := root["nodes"].(json.Object)
-
-	// for a, b in nodes{
-	// 	fmt.println("ass", a)
+	// 			}
+	// 		}
+	// 	}
 	// }
 
 
@@ -139,15 +129,16 @@ get_json_chunk_from_glb :: proc(glb_path: string) -> string {
 	assert(ok)
 	defer delete(data)
 
-	// 4 bytes "glTF", 4 bytes version, 4 bytes glb length, 4 bytes json chunk length, 4 bytes "JSON"
+	// 4 bytes "glTF", 4 bytes version, 4 bytes glb length, 4 bytes json chunk length, 4 bytes "JSON". each symbol is 1 byte
 
-	chunk_length := (^u32)(raw_data(data[12:]))^
-	// chunk_type := (^u32)(raw_data(data[16:]))^
+	// Cast a slice of bytes directly to a slice of u32, then take the first element
+	chunk_length := mem.reinterpret_copy(u32, raw_data(data[12:16]))
+	// chunk_type: u32 = mem.slice_data_cast([]u32, data[16:20])[0]
 
 	res, err := strings.clone_from_bytes(data[16:20])
 	assert(res == "JSON" && err == .None)
 
-	json_data := data[20:20 + chunk_length]
+	json_data := data[20:(20 + chunk_length)]
 	json_string := strings.clone_from_bytes(json_data)
 
 	return json_string

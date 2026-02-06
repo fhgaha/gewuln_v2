@@ -4,12 +4,11 @@ import "core:fmt"
 import r "vendor:raylib"
 
 Flags :: enum {
-	SMALL_RESOLUTION,
-	SHOW_GIZMOS,
+	smal_res,
+	show_gizmos,
+	disable_cursor,
 }
-flags: [Flags]bool = #partial {
-	.SHOW_GIZMOS = true,
-}
+flags: bit_set[Flags]
 
 font: r.Font
 cam: r.Camera3D
@@ -22,10 +21,11 @@ walk_area_tris: [dynamic]tri3
 interactables: [dynamic]Interactable
 
 main :: proc() {
-	//this raylib setup should be in top for some reason
+	flags = {.show_gizmos}
+
+	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT})
+
 	r.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "gewuln")
-	r.SetTraceLogLevel(.ALL)
-	r.SetConfigFlags({.VSYNC_HINT})
 	r.SetTargetFPS(60)
 	r.DisableCursor()
 
@@ -57,8 +57,6 @@ main :: proc() {
 
 	//get metadata
 	load_glb_custom_properties("assets/models/test_rooms/export/test_floor/glb/test_rooms.glb")
-	
-	
 
 
 	walk_area_model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/walk_area.glb")
@@ -96,15 +94,11 @@ main :: proc() {
 		dt := r.GetFrameTime()
 
 		//input
-		switch {
-		case r.IsKeyPressed(.ONE):
-			flags[.SMALL_RESOLUTION] = !flags[.SMALL_RESOLUTION]
-		case r.IsKeyPressed(.TWO):
-			flags[.SHOW_GIZMOS] = !flags[.SHOW_GIZMOS]
-		case r.IsKeyPressed(.THREE):
-		case r.IsKeyPressed(.FOUR):
-		}
+		if r.IsKeyPressed(.ONE) do flags ~= {.smal_res}
+		if r.IsKeyPressed(.TWO) do flags ~= {.show_gizmos}
+		if r.IsKeyPressed(.THREE) do flags ~= {.disable_cursor}
 
+		if .disable_cursor in flags {r.DisableCursor()} else {r.EnableCursor()}
 
 		switch actor.state {
 		case .IDLE:
@@ -125,8 +119,7 @@ main :: proc() {
 		{
 			r.ClearBackground(DARK)
 
-			switch flags[.SMALL_RESOLUTION] {
-			case true:
+			if .smal_res in flags {
 				r.BeginTextureMode(render_target)
 				{
 					render_3d_scene()
@@ -141,7 +134,7 @@ main :: proc() {
 					rotation = 0,
 					tint = r.WHITE,
 				)
-			case false:
+			} else {
 				render_3d_scene()
 			}
 
@@ -161,7 +154,7 @@ render_3d_scene :: proc() {
 	r.BeginMode3D(cam)
 	{
 		r.DrawModel(room, vec3{0, 0, 0}, 1, r.GRAY)
-		if flags[.SHOW_GIZMOS] {
+		if .show_gizmos in flags {
 			r.DrawModelWires(walk_area_model, vec3{0, 0, 0}, 1, r.ORANGE)
 
 			draw_interactables()
@@ -170,7 +163,7 @@ render_3d_scene :: proc() {
 		r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
 		// r.DrawModelWires(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
 
-		if flags[.SHOW_GIZMOS] {
+		if .show_gizmos in flags {
 			r.DrawBoundingBox(actor.bounding_box_glob, r.MAGENTA)
 
 			for &tr in walk_area_tris {
@@ -182,7 +175,8 @@ render_3d_scene :: proc() {
 
 		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
 
-		if flags[.SHOW_GIZMOS] {
+
+		if .show_gizmos in flags {
 			draw_gizmo()
 		}
 	}
