@@ -122,7 +122,8 @@ handle_walk :: proc(dt: f32) {
 	play_anim(&actor.animator, input_dir == 0 ? .IDLE : .WALK)
 	turn()
 	desired_dpos: vec3 = input_dir * actor.speed * dt * actor_dir(&actor)
-	dpos: vec3 = slide(desired_dpos)
+	// dpos: vec3 = slide(desired_dpos)
+	dpos := resolve_slide(desired_dpos, actor.bounding_box_glob, walk_area_tris[:])
 
 	actor.pos += dpos
 	actor.bounding_box_glob = r.BoundingBox {
@@ -145,64 +146,56 @@ handle_walk :: proc(dt: f32) {
 		actor.state = .IDLE
 		fmt.println("handle_idle")
 	}
+}
 
-	slide :: proc(desired_dpos: vec3) -> vec3 {
-		remaining_dpos := desired_dpos
-		max_slide_iterations :: 3
-		dpos := vec3{0, 0, 0}
 
-		for _ in 0 ..< max_slide_iterations {
-			if remaining_dpos == {0, 0, 0} do break
+// Separate this so you can use it for NPCs or other entities later
+resolve_slide :: proc(desired: vec3, bb: r.BoundingBox, area: []tri3) -> (result: vec3) {
+	remaining := desired
 
-			new_bb := r.BoundingBox {
-				min = actor.bounding_box_glob.min + remaining_dpos,
-				max = actor.bounding_box_glob.max + remaining_dpos,
-			}
+	for _ in 0 ..< 3 {
+		if remaining == 0 do break
 
-			if bounding_box_inside_walk_area(new_bb, walk_area_tris[:]) {
-				dpos = remaining_dpos
-				break
-			}
-
-			// Try moving X component
-			rem_dpos_x := vec3{remaining_dpos.x, 0, 0}
-			bb_x := r.BoundingBox {
-				min = actor.bounding_box_glob.min + rem_dpos_x,
-				max = actor.bounding_box_glob.max + rem_dpos_x,
-			}
-
-			// Try moving Z component
-			rem_dpos_z := vec3{0, 0, remaining_dpos.z}
-			bb_z := r.BoundingBox {
-				min = actor.bounding_box_glob.min + rem_dpos_z,
-				max = actor.bounding_box_glob.max + rem_dpos_z,
-			}
-
-			x_valid := bounding_box_inside_walk_area(bb_x, walk_area_tris[:])
-			z_valid := bounding_box_inside_walk_area(bb_z, walk_area_tris[:])
-
-			if x_valid && z_valid {
-				dpos += remaining_dpos
-				break
-			} else if x_valid {
-				dpos += rem_dpos_x
-				remaining_dpos.z = 0
-			} else if z_valid {
-				dpos += rem_dpos_z
-				remaining_dpos.x = 0
-			} else {
-				remaining_dpos *= 0.5
-			}
+		// Helper to check if a potential move is valid
+		is_valid :: proc(offset: vec3, bb: r.BoundingBox, area: []tri3) -> bool {
+			moved_bb := bb
+			moved_bb.min += offset
+			moved_bb.max += offset
+			return bounding_box_inside_walk_area(moved_bb, area)
 		}
 
-		return dpos
+		if is_valid(remaining, bb, area) {
+			result = remaining
+			break
+		}
+
+		// Try axis-splitting for sliding against walls
+		move_x := vec3{remaining.x, 0, 0}
+		move_z := vec3{0, 0, remaining.z}
+
+		can_x := is_valid(move_x, bb, area)
+		can_z := is_valid(move_z, bb, area)
+
+		if can_x && can_z {
+			result += remaining
+			break
+		} else if can_x {
+			result += move_x
+			remaining.z = 0
+		} else if can_z {
+			result += move_z
+			remaining.x = 0
+		} else {
+			remaining *= 0.5 // Dampen if stuck
+		}
 	}
+	return
 }
 
 
 handle_interact :: proc() {
 	play_anim(&actor.animator, .INTERACT)
-	
+
 	//state conditions	
 	walk_cond := last_frame_reached(&actor.animator) && input_dir() != 0
 	idle_cond := last_frame_reached(&actor.animator)

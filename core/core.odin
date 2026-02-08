@@ -1,5 +1,6 @@
 package core
 
+import "core:math/linalg"
 import "core:fmt"
 import r "vendor:raylib"
 
@@ -56,8 +57,8 @@ main :: proc() {
 
 
 	//get metadata
-	load_glb_custom_properties("assets/models/test_rooms/export/test_floor/glb/test_rooms.glb")
-
+	transl:=load_glb_custom_properties("assets/models/test_rooms/export/test_floor/glb/test_rooms.glb")
+	actor.pos = transl
 
 	walk_area_model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/walk_area.glb")
 	defer r.UnloadModel(walk_area_model)

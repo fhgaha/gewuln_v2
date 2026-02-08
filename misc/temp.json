@@ -11,7 +11,8 @@
 				0,
 				1,
 				2,
-				3
+				3,
+				4
 			]
 		}
 	],
@@ -45,6 +46,14 @@
 			},
 			"mesh": 3,
 			"name": "Cone",
+			"translation": [
+				1,
+				0,
+				-1
+			]
+		},
+		{
+			"name": "actor_pos",
 			"translation": [
 				1,
 				0,

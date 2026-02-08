@@ -104,27 +104,33 @@ extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri3) {
 }
 
 
-load_glb_custom_properties :: proc(glb_path: string) {
-	json_string := get_json_chunk_from_glb(glb_path)
-	json_data, err := json.parse_string(json_string, .Bitsquid, parse_integers = true)
-	assert(err == .None)
+load_glb_custom_properties :: proc(glb_path: string) -> vec3 {
+	json_data := get_json_chunk_from_glb(glb_path)
 	defer json.destroy_value(json_data)
 
-	// if root, ok := json_data.(json.Object); ok {
-	// 	if nodes_val, ok := root["nodes"].(json.Array); ok {
-	// 		for node_val in nodes_val {
-	// 			if node, ok := node_val.(json.Object); ok {
+	transl: vec3
 
-	// 			}
-	// 		}
-	// 	}
-	// }
+	for node in json_data.(json.Object)["nodes"].(json.Array) {
+		if node.(json.Object)["name"].(json.String) == "actor_pos" {
+			tr := node.(json.Object)["translation"].(json.Array)
 
+			for i in 0 ..< 3 {
+				switch v in tr[i] {
+				case json.Float:
+					transl[i] = f32(v)
+				case json.Integer:
+					transl[i] = f32(v)
+				case json.Null:; case json.Boolean:; case json.String:; case json.Array:; case json.Object:
+				}
+			}
+		}
+	}
 
+	return transl
 }
 
 
-get_json_chunk_from_glb :: proc(glb_path: string) -> string {
+get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
 	data, ok := os.read_entire_file(glb_path)
 	assert(ok)
 	defer delete(data)
@@ -139,7 +145,9 @@ get_json_chunk_from_glb :: proc(glb_path: string) -> string {
 	assert(res == "JSON" && err == .None)
 
 	json_data := data[20:(20 + chunk_length)]
-	json_string := strings.clone_from_bytes(json_data)
 
-	return json_string
+	parsed, parsed_err := json.parse(json_data, json.DEFAULT_SPECIFICATION, parse_integers = true)
+	assert(parsed_err == .None)
+
+	return parsed
 }
