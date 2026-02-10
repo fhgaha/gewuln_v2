@@ -4,13 +4,13 @@ import "core:fmt"
 import r "vendor:raylib"
 
 Actor :: struct {
-	pos:               vec3,
-	speed, rot_speed:  f32,
-	model:             r.Model,
-	bounding_box_loc:  r.BoundingBox,
-	bounding_box_glob: r.BoundingBox,
-	state:             Actor_State,
-	animator:          Animator,
+	pos:                   vec3,
+	speed, rot_speed:      f32,
+	model:                 r.Model,
+	bounding_box_original: r.BoundingBox,
+	bounding_box:          r.BoundingBox,
+	state:                 Actor_State,
+	animator:              Animator,
 }
 
 Actor_State :: enum {
@@ -23,6 +23,12 @@ actor_state_strings := [Actor_State]string {
 	.IDLE     = "idle",
 	.WALK     = "walk",
 	.INTERACT = "interact",
+}
+
+Input_State :: struct {
+	move_dir:       f32, // -1 to 1 (Forward/Back)
+	turn_dir:       f32, // -1 to 1 (Left/Right)
+	wants_interact: bool,
 }
 
 create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool {
@@ -54,8 +60,8 @@ create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool 
 		speed = 2,
 		rot_speed = 4,
 		model = actor_model,
-		bounding_box_loc = bb,
-		bounding_box_glob = bb,
+		bounding_box_original = bb,
+		bounding_box = bb,
 		state = .IDLE,
 		animator = Animator{anims_count = anim_count, anims = anims},
 	}
@@ -86,26 +92,17 @@ actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 
 
 //actor states
-input_dir :: proc() -> i32 {
-	input_dir: i32
-	if r.IsKeyDown(.W) {
-		input_dir += 1
-	}
-	if r.IsKeyDown(.S) {
-		input_dir -= 1
-	}
-	return input_dir
-}
 
-handle_idle :: proc() {
+handle_idle :: proc(dt: f32) {
+	rotation_amount := input.turn_dir * actor.rot_speed * dt
+	actor.model.transform *= r.MatrixRotateY(rotation_amount)
+
 	play_anim(&actor.animator, .IDLE)
-	turn()
 
-	//state conditions	
-	walk_cond := input_dir() != 0
-	interact_tgr := get_interactable_colliding_actor(interactables[:], actor)
-	interact_tgr_found := interact_tgr != {}
-	interact_cond := r.IsKeyPressed(.E) && interact_tgr_found
+	// state transitions	
+	walk_cond := input.move_dir != 0
+	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(interactables[:], actor)
+	interact_cond := input.wants_interact && interact_tgr_found
 	switch {
 	case walk_cond:
 		actor.state = .WALK
@@ -118,26 +115,21 @@ handle_idle :: proc() {
 
 
 handle_walk :: proc(dt: f32) {
-	input_dir := f32(input_dir())
-	play_anim(&actor.animator, input_dir == 0 ? .IDLE : .WALK)
-	turn()
-	desired_dpos: vec3 = input_dir * actor.speed * dt * actor_dir(&actor)
-	// dpos: vec3 = slide(desired_dpos)
-	dpos := resolve_slide(desired_dpos, actor.bounding_box_glob, walk_area_tris[:])
+	rotation_amount := input.turn_dir * actor.rot_speed * dt
+	actor.model.transform *= r.MatrixRotateY(rotation_amount)
 
+	play_anim(&actor.animator, .WALK)
+
+	desired_dpos: vec3 = input.move_dir * actor.speed * dt * actor_dir(&actor)
+	dpos := resolve_slide(desired_dpos, actor.bounding_box, walk_area_tris[:])
 	actor.pos += dpos
-	actor.bounding_box_glob = r.BoundingBox {
-		min = actor.bounding_box_glob.min + dpos,
-		max = actor.bounding_box_glob.max + dpos,
-	}
+	actor.bounding_box.min += dpos
+	actor.bounding_box.max += dpos
 
-	// State transitions
-	interact_tgr := get_interactable_colliding_actor(interactables[:], actor)
-	interact_tgr_found := interact_tgr != {}
-	interact_cond := interact_tgr_found && r.IsKeyPressed(.E)
-	should_move := r.IsKeyDown(.W) || r.IsKeyDown(.S)
-	is_moving := input_dir != 0
-	idle_cond := !should_move && !is_moving
+	// state transitions
+	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(interactables[:], actor)
+	interact_cond := interact_tgr_found && input.wants_interact
+	idle_cond := input.move_dir == 0
 	switch {
 	case interact_cond:
 		actor.state = .INTERACT
@@ -197,7 +189,7 @@ handle_interact :: proc() {
 	play_anim(&actor.animator, .INTERACT)
 
 	//state conditions	
-	walk_cond := last_frame_reached(&actor.animator) && input_dir() != 0
+	walk_cond := last_frame_reached(&actor.animator) && input.move_dir != 0
 	idle_cond := last_frame_reached(&actor.animator)
 	switch {
 	case walk_cond:
@@ -213,13 +205,16 @@ handle_interact :: proc() {
 get_interactable_colliding_actor :: proc(
 	interactables: []Interactable,
 	actor: Actor,
-) -> Interactable {
+) -> (
+	interactable: Interactable,
+	found: bool,
+) {
 	for &intr in interactables {
-		col := r.CheckCollisionBoxes(actor.bounding_box_glob, r.GetModelBoundingBox(intr.model))
+		col := r.CheckCollisionBoxes(actor.bounding_box, r.GetModelBoundingBox(intr.model))
 		if (col) {
-			return intr
+			return intr, true
 		}
 	}
 
-	return {}
+	return {}, false
 }

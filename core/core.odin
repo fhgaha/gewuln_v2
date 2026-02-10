@@ -11,6 +11,8 @@ Flags :: enum {
 }
 flags: bit_set[Flags]
 
+input: Input_State
+
 font: r.Font
 cam: r.Camera3D
 cam_mode: r.CameraMode
@@ -20,6 +22,8 @@ actor: Actor
 walk_area_model: r.Model
 walk_area_tris: [dynamic]tri3
 interactables: [dynamic]Interactable
+
+
 
 main :: proc() {
 	flags = {.show_gizmos}
@@ -59,6 +63,7 @@ main :: proc() {
 	//get metadata
 	transl:=load_glb_custom_properties("assets/models/test_rooms/export/test_floor/glb/test_rooms.glb")
 	actor.pos = transl
+	
 
 	walk_area_model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/walk_area.glb")
 	defer r.UnloadModel(walk_area_model)
@@ -93,7 +98,8 @@ main :: proc() {
 
 	for !r.WindowShouldClose() {
 		dt := r.GetFrameTime()
-
+		input = get_player_input()
+		
 		//input
 		if r.IsKeyPressed(.ONE) do flags ~= {.smal_res}
 		if r.IsKeyPressed(.TWO) do flags ~= {.show_gizmos}
@@ -103,7 +109,7 @@ main :: proc() {
 
 		switch actor.state {
 		case .IDLE:
-			handle_idle()
+			handle_idle(dt)
 		case .WALK:
 			handle_walk(dt)
 		case .INTERACT:
@@ -165,7 +171,7 @@ render_3d_scene :: proc() {
 		// r.DrawModelWires(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
 
 		if .show_gizmos in flags {
-			r.DrawBoundingBox(actor.bounding_box_glob, r.MAGENTA)
+			r.DrawBoundingBox(actor.bounding_box, r.MAGENTA)
 
 			for &tr in walk_area_tris {
 				r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
@@ -201,13 +207,4 @@ draw_fps :: proc() {
 		spacing = 0,
 		tint = r.ORANGE,
 	)
-}
-
-turn :: proc() {
-	if r.IsKeyDown(.A) {
-		actor.model.transform *= r.MatrixRotateY(actor.rot_speed * r.DEG2RAD)
-	}
-	if r.IsKeyDown(.D) {
-		actor.model.transform *= r.MatrixRotateY(-actor.rot_speed * r.DEG2RAD)
-	}
 }

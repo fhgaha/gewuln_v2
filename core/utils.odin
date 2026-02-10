@@ -103,6 +103,9 @@ extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri3) {
 	}
 }
 
+Custom_Properties :: struct {
+	actor_pos: vec3,
+}
 
 load_glb_custom_properties :: proc(glb_path: string) -> vec3 {
 	json_data := get_json_chunk_from_glb(glb_path)
@@ -150,4 +153,14 @@ get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
 	assert(parsed_err == .None)
 
 	return parsed
+}
+
+
+// Helper to gather input in one place (e.g., in your main loop)
+get_player_input :: proc() -> Input_State {
+	return Input_State {
+		move_dir = f32(int(r.IsKeyDown(.W))) - f32(int(r.IsKeyDown(.S))),
+		turn_dir = f32(int(r.IsKeyDown(.A))) - f32(int(r.IsKeyDown(.D))),
+		wants_interact = r.IsKeyPressed(.E),
+	}
 }
