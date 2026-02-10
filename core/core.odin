@@ -1,7 +1,7 @@
 package core
 
-import "core:math/linalg"
 import "core:fmt"
+import "core:math/linalg"
 import r "vendor:raylib"
 
 Flags :: enum {
@@ -22,7 +22,6 @@ actor: Actor
 walk_area_model: r.Model
 walk_area_tris: [dynamic]tri3
 interactables: [dynamic]Interactable
-
 
 
 main :: proc() {
@@ -61,10 +60,12 @@ main :: proc() {
 
 
 	//get metadata
-	transl:=load_glb_custom_properties("assets/models/test_rooms/export/test_floor/glb/test_rooms.glb")
-	actor.pos = transl
+	transl := load_glb_custom_properties(
+		"assets/models/test_rooms/export/test_floor/glb/test_rooms.glb",
+	)
+	actor_pos_update(transl)
 	
-
+	
 	walk_area_model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/walk_area.glb")
 	defer r.UnloadModel(walk_area_model)
 	extract_tris(&walk_area_model, &walk_area_tris)
@@ -99,7 +100,7 @@ main :: proc() {
 	for !r.WindowShouldClose() {
 		dt := r.GetFrameTime()
 		input = get_player_input()
-		
+
 		//input
 		if r.IsKeyPressed(.ONE) do flags ~= {.smal_res}
 		if r.IsKeyPressed(.TWO) do flags ~= {.show_gizmos}

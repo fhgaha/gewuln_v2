@@ -1,10 +1,12 @@
 package core
 
 import "core:fmt"
+import "core:math"
 import r "vendor:raylib"
 
 Actor :: struct {
 	pos:                   vec3,
+	yaw:                   f32, //in rads
 	speed, rot_speed:      f32,
 	model:                 r.Model,
 	bounding_box_original: r.BoundingBox,
@@ -90,12 +92,28 @@ actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 	return
 }
 
+actor_pos_update :: proc(delta: vec3) {
+	actor.pos += delta
+	actor.bounding_box.min += delta
+	actor.bounding_box.max += delta
+}
+
 
 //actor states
 
 handle_idle :: proc(dt: f32) {
 	rotation_amount := input.turn_dir * actor.rot_speed * dt
-	actor.model.transform *= r.MatrixRotateY(rotation_amount)
+	actor.yaw += rotation_amount
+
+	if actor.yaw < -r.PI do actor.yaw += 2 * r.PI
+	if actor.yaw > r.PI do actor.yaw -= 2 * r.PI
+
+	// instead of this
+	// rot := r.MatrixRotateY(actor.yaw)
+	// transl := r.MatrixTranslate(actor.pos.x, actor.pos.y, actor.pos.z)
+	// actor.model.transform = transl * rot
+	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
+	actor.model.transform = r.MatrixRotateY(actor.yaw)
 
 	play_anim(&actor.animator, .IDLE)
 
@@ -116,15 +134,18 @@ handle_idle :: proc(dt: f32) {
 
 handle_walk :: proc(dt: f32) {
 	rotation_amount := input.turn_dir * actor.rot_speed * dt
-	actor.model.transform *= r.MatrixRotateY(rotation_amount)
+
+	actor.yaw += rotation_amount
 
 	play_anim(&actor.animator, .WALK)
 
 	desired_dpos: vec3 = input.move_dir * actor.speed * dt * actor_dir(&actor)
 	dpos := resolve_slide(desired_dpos, actor.bounding_box, walk_area_tris[:])
-	actor.pos += dpos
-	actor.bounding_box.min += dpos
-	actor.bounding_box.max += dpos
+	actor_pos_update(dpos)
+
+	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
+	actor.model.transform = r.MatrixRotateY(actor.yaw)
+
 
 	// state transitions
 	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(interactables[:], actor)
