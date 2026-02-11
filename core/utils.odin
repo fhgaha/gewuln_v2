@@ -2,6 +2,7 @@ package core
 
 import "core:encoding/json"
 import "core:fmt"
+import "core:math"
 import "core:mem"
 import "core:os"
 import "core:strings"
@@ -105,31 +106,50 @@ extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri3) {
 
 Custom_Properties :: struct {
 	actor_pos: vec3,
+	actor_yaw: f32,
 }
 
-load_glb_custom_properties :: proc(glb_path: string) -> vec3 {
+load_glb_custom_properties :: proc(glb_path: string) -> Custom_Properties {
 	json_data := get_json_chunk_from_glb(glb_path)
 	defer json.destroy_value(json_data)
 
 	transl: vec3
+	yaw: f32
 
 	for node in json_data.(json.Object)["nodes"].(json.Array) {
-		if node.(json.Object)["name"].(json.String) == "actor_pos" {
+		if node.(json.Object)["name"].(json.String) == "actor" {
 			tr := node.(json.Object)["translation"].(json.Array)
 
 			for i in 0 ..< 3 {
-				switch v in tr[i] {
+				#partial switch v in tr[i] {
 				case json.Float:
 					transl[i] = f32(v)
 				case json.Integer:
 					transl[i] = f32(v)
-				case json.Null:; case json.Boolean:; case json.String:; case json.Array:; case json.Object:
 				}
 			}
+
+			// glb uses quats: "rotation":[0,0.7071068286895752,0,0.7071068286895752],
+			rotat := node.(json.Object)["rotation"].(json.Array)
+
+			rt: [4]f32
+			for i in 0 ..< 4 {
+				#partial switch v in rotat[i] {
+				case json.Float:
+					rt[i] = f32(v)
+				case json.Integer:
+					rt[i] = f32(v)
+				}
+			}
+
+			yaw = math.atan2(2 * (rt.w * rt.y + rt.x * rt.z), 1 - 2 * (rt.x * rt.x + rt.y * rt.y))
+
+			break
 		}
 	}
 
-	return transl
+
+	return Custom_Properties{actor_pos = transl, actor_yaw = yaw}
 }
 
 

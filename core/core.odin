@@ -60,12 +60,14 @@ main :: proc() {
 
 
 	//get metadata
-	transl := load_glb_custom_properties(
+	custom_props := load_glb_custom_properties(
 		"assets/models/test_rooms/export/test_floor/glb/test_rooms.glb",
 	)
-	actor_pos_update(transl)
-	
-	
+	actor_pos_update(custom_props.actor_pos)
+	actor.yaw = custom_props.actor_yaw
+	actor.model.transform = r.MatrixRotateY(actor.yaw)
+
+
 	walk_area_model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/walk_area.glb")
 	defer r.UnloadModel(walk_area_model)
 	extract_tris(&walk_area_model, &walk_area_tris)

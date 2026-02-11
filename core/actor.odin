@@ -102,9 +102,7 @@ actor_pos_update :: proc(delta: vec3) {
 //actor states
 
 handle_idle :: proc(dt: f32) {
-	rotation_amount := input.turn_dir * actor.rot_speed * dt
-	actor.yaw += rotation_amount
-
+	actor.yaw += input.turn_dir * actor.rot_speed * dt
 	if actor.yaw < -r.PI do actor.yaw += 2 * r.PI
 	if actor.yaw > r.PI do actor.yaw -= 2 * r.PI
 
@@ -133,9 +131,9 @@ handle_idle :: proc(dt: f32) {
 
 
 handle_walk :: proc(dt: f32) {
-	rotation_amount := input.turn_dir * actor.rot_speed * dt
-
-	actor.yaw += rotation_amount
+	actor.yaw += input.turn_dir * actor.rot_speed * dt
+	if actor.yaw < -r.PI do actor.yaw += 2 * r.PI
+	if actor.yaw > r.PI do actor.yaw -= 2 * r.PI
 
 	play_anim(&actor.animator, .WALK)
 

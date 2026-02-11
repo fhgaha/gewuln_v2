@@ -54,3 +54,10 @@ NitroPlum
  — 
 Вчера, в 23:38
 U can #load the file and pass the memory to cgltf 
+
+
+mat = identitiy
+mat *= scale
+mat *= rotation(yaw)
+mat *= translation(pos)
+
