@@ -2,7 +2,6 @@ package core
 
 import "../packages/toml"
 import "core:fmt"
-import "core:math"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -158,9 +157,7 @@ handle_walk :: proc(dt: f32) {
 
 	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(&main_actor)
 	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, get_cur_level().walk_area_tris[:])
-	// actor_pos_update(dpos)
-	dpos_lerped := r.Vector3MoveTowards(main_actor.pos, dpos, accumulated_time / DT)
-	actor_pos_update(dpos_lerped)
+	actor_pos_update(dpos)
 
 	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
 	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)

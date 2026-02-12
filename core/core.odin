@@ -59,37 +59,44 @@ main :: proc() {
 
 
 	for !r.WindowShouldClose() {
-		if .paused in flags {
-		} else {
-			accumulated_time += r.GetFrameTime()
+
+		//fixed timestep (the "accumulator" pattern)
+		max_dt :: 0.25
+		dt := r.Clamp(r.GetFrameTime(), 0, max_dt)
+		accumulated_time += dt
+
+		for accumulated_time >= DT {
+
+			if .paused in flags do break
+
+			input = get_player_input()
+
+			//input
+			if r.IsKeyReleased(.ONE) do flags ~= {.smal_res}
+			if r.IsKeyReleased(.TWO) do flags ~= {.show_gizmos}
+			if r.IsKeyReleased(.THREE) {
+				flags ~= {.lock_cursor}
+				if .lock_cursor in flags {r.DisableCursor()} else {r.EnableCursor()}
+			}
+
+
+			switch main_actor.state {
+			case .IDLE:
+				handle_idle(DT)
+			case .WALK:
+				handle_walk(DT)
+			case .INTERACT:
+				handle_interact()
+			}
+
+
+			//update
+			update_actor_anim(&main_actor)
+			update_cam(DT)
+
+			accumulated_time -= DT
+
 		}
-
-		input = get_player_input()
-
-		//input
-		if r.IsKeyReleased(.ONE) do flags ~= {.smal_res}
-		if r.IsKeyReleased(.TWO) do flags ~= {.show_gizmos}
-		if r.IsKeyReleased(.THREE) {
-			flags ~= {.lock_cursor}
-			if .lock_cursor in flags {r.DisableCursor()} else {r.EnableCursor()}
-		}
-
-
-		switch main_actor.state {
-		case .IDLE:
-			handle_idle(DT)
-		case .WALK:
-			handle_walk(DT)
-		case .INTERACT:
-			handle_interact()
-		}
-
-
-		//update
-		update_actor_anim(&main_actor)
-		update_cam(DT)
-		
-		accumulated_time -= DT
 
 
 		r.BeginDrawing()
