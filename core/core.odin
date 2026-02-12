@@ -16,10 +16,10 @@ flags: bit_set[Flags]
 
 input: Input_State
 font: r.Font
-state: Game_State
+game_state: Game_State
 
 Game_State :: struct {
-	cur_level: Level,
+	cur_level: string,
 	levels:    map[string]Level,
 	actor:     Actor,
 }
@@ -27,11 +27,11 @@ Game_State :: struct {
 
 //get rid of this
 actor: Actor
-cam: r.Camera3D
-cam_mode: r.CameraMode
+// cam: r.Camera3D
+// cam_mode: r.CameraMode
 room: r.Model
-walk_area_model: r.Model
-walk_area_tris: [dynamic]tri3
+// walk_area_model: r.Model
+// walk_area_tris: [dynamic]tri3
 interactables: [dynamic]Interactable
 //
 
@@ -57,8 +57,9 @@ main :: proc() {
 
 	create_actor_from_toml(&actor, game_config)
 
-	state.levels["level1"] = create_level(game_config)
-	
+	game_state.levels["level1"] = create_level(game_config)
+	game_state.cur_level = "level1"
+
 
 	// cam = r.Camera3D {
 	// 	position   = vec3{1, 2, 4},
@@ -83,9 +84,9 @@ main :: proc() {
 	actor.model.transform = r.MatrixRotateY(actor.yaw)
 
 
-	walk_area_model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/walk_area.glb")
-	defer r.UnloadModel(walk_area_model)
-	extract_tris(&walk_area_model, &walk_area_tris)
+	// walk_area_model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/walk_area.glb")
+	// defer r.UnloadModel(walk_area_model)
+	// extract_tris(&walk_area_model, &walk_area_tris)
 
 	//interactables
 	//TODO defer delete, unload
@@ -176,32 +177,26 @@ main :: proc() {
 render_3d_scene :: proc() {
 	r.ClearBackground(DARK)
 
-	r.BeginMode3D(cam)
+	r.BeginMode3D(get_cur_level().cam)
 	{
 		r.DrawModel(room, vec3{0, 0, 0}, 1, r.GRAY)
 		if .show_gizmos in flags {
-			r.DrawModelWires(walk_area_model, vec3{0, 0, 0}, 1, r.ORANGE)
-
 			draw_interactables()
 		}
 
 		r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
-		// r.DrawModelWires(actor.model, vec3{0, 0, 0}, 1, r.WHITE)
+		// r.DrawModelWires(actor.model, actor.pos, 1, r.GREEN)
+
+		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
 
 		if .show_gizmos in flags {
 			r.DrawBoundingBox(actor.bounding_box, r.MAGENTA)
 
-			for &tr in walk_area_tris {
+			for &tr in get_cur_level().walk_area_tris {
 				r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
 				r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
 				r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)
 			}
-		}
-
-		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
-
-
-		if .show_gizmos in flags {
 			draw_gizmo()
 		}
 	}
@@ -210,7 +205,7 @@ render_3d_scene :: proc() {
 
 
 draw_gizmo :: proc() {
-	dist := r.Vector3Distance(cam.position, vec3{0, 0, 0})
+	dist := r.Vector3Distance(get_cur_level().cam.position, vec3{0, 0, 0})
 	r.DrawCylinderEx(vec3{0, 0, 0}, vec3{1, 0, 0} * dist, 0.02, 0.02, 2, r.RED)
 	r.DrawCylinderEx(vec3{0, 0, 0}, vec3{0, 1, 0} * dist, 0.02, 0.02, 2, r.GREEN)
 	r.DrawCylinderEx(vec3{0, 0, 0}, vec3{0, 0, 1} * dist, 0.02, 0.02, 2, r.BLUE)

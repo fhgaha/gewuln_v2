@@ -152,7 +152,7 @@ handle_walk :: proc(dt: f32) {
 	play_anim(&actor.animator, .WALK)
 
 	desired_dpos: vec3 = input.move_dir * actor.speed * dt * actor_dir(&actor)
-	dpos := resolve_slide(desired_dpos, actor.bounding_box, walk_area_tris[:])
+	dpos := resolve_slide(desired_dpos, actor.bounding_box, get_cur_level().walk_area_tris[:])
 	actor_pos_update(dpos)
 
 	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
