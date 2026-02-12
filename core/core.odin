@@ -7,7 +7,7 @@ import r "vendor:raylib"
 Flags :: enum {
 	smal_res,
 	show_gizmos,
-	disable_cursor,
+	lock_cursor,
 }
 
 Game_State :: struct {
@@ -23,9 +23,10 @@ game_state: Game_State
 main_actor: Actor
 game_config: ^toml.Table
 
+game_config_data := #load("../config.toml")
 
 main :: proc() {
-	flags = {.show_gizmos}
+	flags = {.lock_cursor}
 
 	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT})
 
@@ -34,8 +35,9 @@ main :: proc() {
 	r.DisableCursor()
 
 	err1: toml.Error
-	game_config, err1 = toml.parse_file("config.toml")
-	assert(err1.type == .None, fmt.enum_value_to_string(err1.type) or_else "")
+	game_config, err1 = toml.parse_data(game_config_data)
+	// game_config, err1 = toml.parse_file("config.toml")
+	assert(err1.type == .None, fmt.enum_value_to_string(err1.type) or_else "an error")
 
 	font = r.LoadFont("assets/fonts/centurygothic/centurygothic_bold.ttf")
 	r.SetTextureFilter(font.texture, .BILINEAR)
@@ -56,11 +58,13 @@ main :: proc() {
 		input = get_player_input()
 
 		//input
-		if r.IsKeyPressed(.ONE) do flags ~= {.smal_res}
-		if r.IsKeyPressed(.TWO) do flags ~= {.show_gizmos}
-		if r.IsKeyPressed(.THREE) do flags ~= {.disable_cursor}
+		if r.IsKeyReleased(.ONE) do flags ~= {.smal_res}
+		if r.IsKeyReleased(.TWO) do flags ~= {.show_gizmos}
+		if r.IsKeyReleased(.THREE) {
+			flags ~= {.lock_cursor}
+			if .lock_cursor in flags {r.DisableCursor()} else {r.EnableCursor()}
+		}
 
-		if .disable_cursor in flags {r.DisableCursor()} else {r.EnableCursor()}
 
 		switch main_actor.state {
 		case .IDLE:
@@ -128,11 +132,7 @@ render_3d_scene :: proc() {
 		if .show_gizmos in flags {
 			r.DrawBoundingBox(main_actor.bounding_box, r.MAGENTA)
 
-			for &tr in get_cur_level().walk_area_tris {
-				r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
-				r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
-				r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)
-			}
+			draw_walking_area()
 			draw_gizmo()
 		}
 	}
@@ -156,4 +156,12 @@ draw_fps :: proc() {
 		spacing = 0,
 		tint = r.ORANGE,
 	)
+}
+
+draw_walking_area :: proc() {
+	for &tr in get_cur_level().walk_area_tris {
+		r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
+		r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
+		r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)
+	}
 }

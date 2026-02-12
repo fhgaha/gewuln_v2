@@ -112,14 +112,11 @@ create_level :: proc(section: ^toml.Table) -> Level {
 	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)
 
 	return level
-
 }
 
 destroy_level :: proc() {}
 
-load_level :: proc(lvl: ^Level) {
-
-}
+load_level :: proc(lvl: ^Level) {}
 
 unload_level :: proc(lvl: ^Level) {
 	cur_lvl := get_cur_level()
