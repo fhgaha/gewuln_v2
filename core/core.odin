@@ -1,5 +1,8 @@
 package core
 
+import "core:strings"
+
+import "../packages/toml"
 import "core:fmt"
 import "core:math/linalg"
 import r "vendor:raylib"
@@ -12,16 +15,27 @@ Flags :: enum {
 flags: bit_set[Flags]
 
 input: Input_State
-
 font: r.Font
+state: Game_State
+
+Game_State :: struct {
+	cur_level: Level,
+	levels:    map[string]Level,
+	actor:     Actor,
+}
+
+
+//get rid of this
+actor: Actor
 cam: r.Camera3D
 cam_mode: r.CameraMode
-
 room: r.Model
-actor: Actor
 walk_area_model: r.Model
 walk_area_tris: [dynamic]tri3
 interactables: [dynamic]Interactable
+//
+
+game_config: ^toml.Table
 
 
 main :: proc() {
@@ -33,26 +47,27 @@ main :: proc() {
 	r.SetTargetFPS(60)
 	r.DisableCursor()
 
+	err1: toml.Error
+	game_config, err1 = toml.parse_file("config.toml")
+	assert(err1.type == .None, fmt.enum_value_to_string(err1.type) or_else "")
+
 	font = r.LoadFont("assets/fonts/centurygothic/centurygothic_bold.ttf")
 	r.SetTextureFilter(font.texture, .BILINEAR)
 	defer r.UnloadFont(font)
 
-	//set up
-	cam = r.Camera3D {
-		position   = vec3{1, 2, 4},
-		target     = vec3{0, 1, 0},
-		up         = vec3{0, 1, 0},
-		fovy       = FOV_DEG / 2,
-		projection = .PERSPECTIVE,
-	}
-	cam_mode = r.CameraMode.CUSTOM
+	create_actor_from_toml(&actor, game_config)
 
-	ok := create_actor(
-		&actor,
-		"assets/models/mona_sax/export/glb/mona.glb",
-		"assets/models/mona_sax/export/glb/collider.glb",
-	)
-	assert(ok)
+	state.levels["level1"] = create_level(game_config)
+	
+
+	// cam = r.Camera3D {
+	// 	position   = vec3{1, 2, 4},
+	// 	target     = vec3{0, 1, 0},
+	// 	up         = vec3{0, 1, 0},
+	// 	fovy       = FOV_DEG / 2,
+	// 	projection = .PERSPECTIVE,
+	// }
+	// cam_mode = r.CameraMode.CUSTOM
 
 	//load the room scene and walk area separately
 	room = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/test_rooms.glb")

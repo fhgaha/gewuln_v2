@@ -184,3 +184,7 @@ get_player_input :: proc() -> Input_State {
 		wants_interact = r.IsKeyPressed(.E),
 	}
 }
+
+print :: proc(args: ..any) {
+	fmt.println("here: ", args)
+}

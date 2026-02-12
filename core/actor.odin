@@ -1,7 +1,9 @@
 package core
 
+import "../packages/toml"
 import "core:fmt"
 import "core:math"
+import "core:strings"
 import r "vendor:raylib"
 
 Actor :: struct {
@@ -70,6 +72,18 @@ create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool 
 	fill_animation_names(&actor.animator)
 
 	return true
+}
+
+
+create_actor_from_toml :: proc(actor: ^Actor, section: ^toml.Table) {
+	model_path := toml.get_string_panic(section, "main_actor", "model")
+	collider_path := toml.get_string_panic(section, "main_actor", "collider")
+	ok := create_actor(
+		actor,
+		strings.clone_to_cstring(model_path),
+		strings.clone_to_cstring(collider_path),
+	)
+	assert(ok)
 }
 
 actor_pos :: proc(actor: ^Actor) -> vec3 {
