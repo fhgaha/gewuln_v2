@@ -107,68 +107,74 @@ actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 }
 
 actor_pos_update :: proc(delta: vec3) {
-	actor.pos += delta
-	actor.bounding_box.min += delta
-	actor.bounding_box.max += delta
+	main_actor.pos += delta
+	main_actor.bounding_box.min += delta
+	main_actor.bounding_box.max += delta
 }
 
 
 //actor states
 
 handle_idle :: proc(dt: f32) {
-	actor.yaw += input.turn_dir * actor.rot_speed * dt
-	if actor.yaw < -r.PI do actor.yaw += 2 * r.PI
-	if actor.yaw > r.PI do actor.yaw -= 2 * r.PI
+	main_actor.yaw += input.turn_dir * main_actor.rot_speed * dt
+	if main_actor.yaw < -r.PI do main_actor.yaw += 2 * r.PI
+	if main_actor.yaw > r.PI do main_actor.yaw -= 2 * r.PI
 
 	// instead of this
 	// rot := r.MatrixRotateY(actor.yaw)
 	// transl := r.MatrixTranslate(actor.pos.x, actor.pos.y, actor.pos.z)
 	// actor.model.transform = transl * rot
 	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
-	actor.model.transform = r.MatrixRotateY(actor.yaw)
+	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)
 
-	play_anim(&actor.animator, .IDLE)
+	play_anim(&main_actor.animator, .IDLE)
 
 	// state transitions	
 	walk_cond := input.move_dir != 0
-	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(interactables[:], actor)
+	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(
+		get_cur_level().interactables[:],
+		main_actor,
+	)
 	interact_cond := input.wants_interact && interact_tgr_found
 	switch {
 	case walk_cond:
-		actor.state = .WALK
+		main_actor.state = .WALK
 		fmt.println("handle_walk")
 	case interact_cond:
-		actor.state = .INTERACT
+		main_actor.state = .INTERACT
 		fmt.println("handle_interact")
 	}
 }
 
 
 handle_walk :: proc(dt: f32) {
-	actor.yaw += input.turn_dir * actor.rot_speed * dt
-	if actor.yaw < -r.PI do actor.yaw += 2 * r.PI
-	if actor.yaw > r.PI do actor.yaw -= 2 * r.PI
+	main_actor.yaw += input.turn_dir * main_actor.rot_speed * dt
+	if main_actor.yaw < -r.PI do main_actor.yaw += 2 * r.PI
+	if main_actor.yaw > r.PI do main_actor.yaw -= 2 * r.PI
 
-	play_anim(&actor.animator, .WALK)
+	play_anim(&main_actor.animator, .WALK)
 
-	desired_dpos: vec3 = input.move_dir * actor.speed * dt * actor_dir(&actor)
-	dpos := resolve_slide(desired_dpos, actor.bounding_box, get_cur_level().walk_area_tris[:])
+	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(&main_actor)
+	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, get_cur_level().walk_area_tris[:])
 	actor_pos_update(dpos)
 
 	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
-	actor.model.transform = r.MatrixRotateY(actor.yaw)
+	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)
 
 
 	// state transitions
-	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(interactables[:], actor)
+	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(
+		get_cur_level().interactables[:],
+		main_actor,
+	)
 	interact_cond := interact_tgr_found && input.wants_interact
 	idle_cond := input.move_dir == 0
 	switch {
 	case interact_cond:
-		actor.state = .INTERACT
+		main_actor.state = .INTERACT
 		fmt.println("handle_interact")
 	case idle_cond:
-		actor.state = .IDLE
+		main_actor.state = .IDLE
 		fmt.println("handle_idle")
 	}
 }
@@ -219,17 +225,17 @@ resolve_slide :: proc(desired: vec3, bb: r.BoundingBox, area: []tri3) -> (result
 
 
 handle_interact :: proc() {
-	play_anim(&actor.animator, .INTERACT)
+	play_anim(&main_actor.animator, .INTERACT)
 
 	//state conditions	
-	walk_cond := last_frame_reached(&actor.animator) && input.move_dir != 0
-	idle_cond := last_frame_reached(&actor.animator)
+	walk_cond := last_frame_reached(&main_actor.animator) && input.move_dir != 0
+	idle_cond := last_frame_reached(&main_actor.animator)
 	switch {
 	case walk_cond:
-		actor.state = .WALK
+		main_actor.state = .WALK
 		fmt.println("handle_idle")
 	case idle_cond:
-		actor.state = .IDLE
+		main_actor.state = .IDLE
 		fmt.println("handle_idle")
 	}
 }

@@ -9,7 +9,7 @@ Interactable :: struct {
 }
 
 draw_interactables :: proc(color: r.Color = r.RED) {
-	for intr in interactables {
+	for intr in get_cur_level().interactables {
 		r.DrawModelWires(intr.model, pos_from_transform(intr.model.transform), 1, color)
 	}
 }

@@ -12,11 +12,6 @@ Flags :: enum {
 	show_gizmos,
 	disable_cursor,
 }
-flags: bit_set[Flags]
-
-input: Input_State
-font: r.Font
-game_state: Game_State
 
 Game_State :: struct {
 	cur_level: string,
@@ -24,17 +19,11 @@ Game_State :: struct {
 	actor:     Actor,
 }
 
-
-//get rid of this
-actor: Actor
-// cam: r.Camera3D
-// cam_mode: r.CameraMode
-room: r.Model
-// walk_area_model: r.Model
-// walk_area_tris: [dynamic]tri3
-interactables: [dynamic]Interactable
-//
-
+flags: bit_set[Flags]
+input: Input_State
+font: r.Font
+game_state: Game_State
+main_actor: Actor
 game_config: ^toml.Table
 
 
@@ -55,24 +44,11 @@ main :: proc() {
 	r.SetTextureFilter(font.texture, .BILINEAR)
 	defer r.UnloadFont(font)
 
-	create_actor_from_toml(&actor, game_config)
+	create_actor_from_toml(&main_actor, game_config)
 
 	game_state.levels["level1"] = create_level(game_config)
+	//load other levels here
 	game_state.cur_level = "level1"
-
-
-	// cam = r.Camera3D {
-	// 	position   = vec3{1, 2, 4},
-	// 	target     = vec3{0, 1, 0},
-	// 	up         = vec3{0, 1, 0},
-	// 	fovy       = FOV_DEG / 2,
-	// 	projection = .PERSPECTIVE,
-	// }
-	// cam_mode = r.CameraMode.CUSTOM
-
-	//load the room scene and walk area separately
-	room = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/test_rooms.glb")
-	defer r.UnloadModel(room)
 
 
 	//get metadata
@@ -80,35 +56,8 @@ main :: proc() {
 		"assets/models/test_rooms/export/test_floor/glb/test_rooms.glb",
 	)
 	actor_pos_update(custom_props.actor_pos)
-	actor.yaw = custom_props.actor_yaw
-	actor.model.transform = r.MatrixRotateY(actor.yaw)
-
-
-	// walk_area_model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/walk_area.glb")
-	// defer r.UnloadModel(walk_area_model)
-	// extract_tris(&walk_area_model, &walk_area_tris)
-
-	//interactables
-	//TODO defer delete, unload
-	append(&interactables, Interactable {
-		name = "interactable_h_half",
-		model = r.LoadModel(
-			"assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb",
-		),
-		action = proc(intr: Interactable) {
-			fmt.println("action of interactable_h_half")
-		},
-	})
-	append(&interactables, Interactable {
-		name = "interactable_h_2",
-		model = r.LoadModel("assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"),
-		action = proc(intr: Interactable) {
-			fmt.println("action of interactable_h_2")
-		},
-	})
-	defer for intr in interactables {
-		r.UnloadModel(intr.model)
-	}
+	main_actor.yaw = custom_props.actor_yaw
+	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)
 
 
 	render_target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
@@ -126,7 +75,7 @@ main :: proc() {
 
 		if .disable_cursor in flags {r.DisableCursor()} else {r.EnableCursor()}
 
-		switch actor.state {
+		switch main_actor.state {
 		case .IDLE:
 			handle_idle(dt)
 		case .WALK:
@@ -137,7 +86,7 @@ main :: proc() {
 
 
 		//update
-		update_actor_anim(&actor)
+		update_actor_anim(&main_actor)
 		update_cam(dt)
 
 
@@ -179,18 +128,18 @@ render_3d_scene :: proc() {
 
 	r.BeginMode3D(get_cur_level().cam)
 	{
-		r.DrawModel(room, vec3{0, 0, 0}, 1, r.GRAY)
+		r.DrawModel(get_cur_level().room, vec3{0, 0, 0}, 1, r.GRAY)
 		if .show_gizmos in flags {
 			draw_interactables()
 		}
 
-		r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
+		r.DrawModel(main_actor.model, main_actor.pos, 1, r.WHITE)
 		// r.DrawModelWires(actor.model, actor.pos, 1, r.GREEN)
 
 		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
 
 		if .show_gizmos in flags {
-			r.DrawBoundingBox(actor.bounding_box, r.MAGENTA)
+			r.DrawBoundingBox(main_actor.bounding_box, r.MAGENTA)
 
 			for &tr in get_cur_level().walk_area_tris {
 				r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)

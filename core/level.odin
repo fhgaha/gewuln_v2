@@ -2,8 +2,6 @@ package core
 
 import "../packages/toml"
 import "core:fmt"
-import "core:math/linalg"
-import "core:slice"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -44,6 +42,11 @@ create_level :: proc(section: ^toml.Table) -> Level {
 		}
 	}
 
+	// room
+
+	room_glb := toml.get_string_panic(level1, "room_glb")
+	room := r.LoadModel(strings.clone_to_cstring(room_glb))
+
 	// walk area
 
 	walk_area_glb := toml.get_string_panic(level1, "walk_area_glb")
@@ -53,6 +56,28 @@ create_level :: proc(section: ^toml.Table) -> Level {
 	walk_area_tris: [dynamic]tri3
 	extract_tris(&walk_area_model, &walk_area_tris)
 	assert(len(walk_area_tris) > 0)
+
+	// interactables
+
+	interactables: [dynamic]Interactable
+
+	interactables_toml := toml.get_list_panic(level1, "interactables")
+	for intr in interactables_toml {
+		intr_fields := intr.(^toml.Table)
+		name_toml := toml.get_string_panic(intr_fields, "name")
+		glb_toml := toml.get_string_panic(intr_fields, "glb")
+
+		append(
+			&interactables,
+			Interactable {
+				name = name_toml,
+				model = r.LoadModel(strings.clone_to_cstring(glb_toml)),
+				action = proc(intr: Interactable) {
+					// fmt.printfln("action of %s", name_)
+				},
+			},
+		)
+	}
 
 
 	return Level {
@@ -65,19 +90,11 @@ create_level :: proc(section: ^toml.Table) -> Level {
 			projection = .PERSPECTIVE,
 		},
 		cam_mode = r.CameraMode.CUSTOM,
-
-		//TODO
-		// room = ,
+		room = room,
 		walk_area_model = walk_area_model,
 		walk_area_tris = walk_area_tris,
-		// interactables = ,
+		interactables = interactables,
 	}
-
-
-	/*	
-	{ main_actor = { collider = "assets/models/mona_sax/export/glb/collider.glb", model = "assets/models/mona_sax/export/glb/mona.glb" }, levels = { level1 = { name = "level1", room_glb = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb", camera = { target = [ 0, 1, 0 ], pos = [ 1, 2, 4 ] }, walk_area_glb = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb", interactables = [ { name 
-= "interactable_h_half", glb = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb" }, { name = "interactable_h_2", glb = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb" } ] } } }
-*/
 }
 
 load_level :: proc(lvl: ^Level) {
