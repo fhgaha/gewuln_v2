@@ -34,6 +34,19 @@ pos_from_transform :: proc(m: r.Matrix) -> vec3 {
 	return vec3{m[0, 3], m[1, 3], m[2, 3]}
 }
 
+orientation_from_transform :: proc(m: r.Matrix) -> (fwd, left, up: vec3) {
+	left = vec3{m[0, 0], m[1, 0], m[2, 0]}
+	up = vec3{m[0, 1], m[1, 1], m[2, 1]}
+	fwd = vec3{m[0, 2], m[1, 2], m[2, 2]}
+	return
+}
+
+yaw_from_transform :: proc(m: r.Matrix) -> f32 {
+	q := r.QuaternionFromMatrix(m)
+	yaw := math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.x * q.x + q.y * q.y))
+	return f32(yaw)
+}
+
 square_points_2d :: proc(min, max: vec2) -> [4]vec2 {
 	return {
 		min, // bottom-left
@@ -129,7 +142,7 @@ load_glb_custom_properties :: proc(glb_path: string) -> Custom_Properties {
 				}
 			}
 
-			// glb uses quats: "rotation":[0,0.7071068286895752,0,0.7071068286895752],
+			// glb uses quaternions for rotations: "rotation":[0,0.7071068286895752,0,0.7071068286895752],
 			rotat := node.(json.Object)["rotation"].(json.Array)
 
 			rt: [4]f32

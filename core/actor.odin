@@ -7,6 +7,7 @@ import "core:strings"
 import r "vendor:raylib"
 
 Actor :: struct {
+	initialised:           bool,
 	pos:                   vec3,
 	yaw:                   f32, //in rads
 	speed, rot_speed:      f32,
@@ -35,17 +36,17 @@ Input_State :: struct {
 	wants_interact: bool,
 }
 
-create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool {
+create_actor :: proc(actor_path, collider_path: cstring) -> (actor: Actor, ok: bool) {
 	// Load resources
 	actor_model := r.LoadModel(actor_path)
 	if !r.IsModelValid(actor_model) {
-		return false
+		return {}, false
 	}
 
 	actor_coll_model := r.LoadModel(collider_path)
 	if !r.IsModelValid(actor_coll_model) {
 		r.UnloadModel(actor_model)
-		return false
+		return {}, false
 	}
 
 	// Load animations
@@ -54,36 +55,43 @@ create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool 
 	if anims == nil || anim_count == 0 {
 		r.UnloadModel(actor_model)
 		r.UnloadModel(actor_coll_model)
-		return false
+		return {}, false
 	}
 
 	bb := r.GetModelBoundingBox(actor_coll_model)
 
-	// Assemble the actor
-	actor^ = Actor {
-		speed = 2,
-		rot_speed = 4,
-		model = actor_model,
-		bounding_box_original = bb,
-		bounding_box = bb,
-		state = .IDLE,
-		animator = Animator{anims_count = anim_count, anims = anims},
+	animator := Animator {
+		anims_count = anim_count,
+		anims       = anims,
 	}
-	fill_animation_names(&actor.animator)
+	fill_animation_names(&animator)
 
-	return true
+	actor = Actor {
+		initialised           = true,
+		pos                   = pos_from_transform(actor_model.transform),
+		yaw                   = yaw_from_transform(actor_model.transform),
+		speed                 = 2,
+		rot_speed             = 4,
+		model                 = actor_model,
+		bounding_box_original = bb,
+		bounding_box          = bb,
+		state                 = .IDLE,
+		animator              = animator,
+	}
+	ok = true
+	return
 }
 
 
-create_actor_from_toml :: proc(actor: ^Actor, section: ^toml.Table) {
+create_actor_from_toml :: proc(section: ^toml.Table) -> Actor {
 	model_path := toml.get_string_panic(section, "main_actor", "model")
 	collider_path := toml.get_string_panic(section, "main_actor", "collider")
-	ok := create_actor(
-		actor,
+	actor, ok := create_actor(
 		strings.clone_to_cstring(model_path),
 		strings.clone_to_cstring(collider_path),
 	)
 	assert(ok)
+	return actor
 }
 
 actor_pos :: proc(actor: ^Actor) -> vec3 {
@@ -96,13 +104,7 @@ actor_dir :: proc(actor: ^Actor) -> vec3 {
 }
 
 actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
-	m: r.Matrix = actor.model.transform
-	// right = {m.m0, m.m1, m.m2}     // First column
-	left = vec3{m[0, 0], m[1, 0], m[2, 0]}
-	// up = {m.m4, m.m5, m.m6}        // Second column
-	up = vec3{m[0, 1], m[1, 1], m[2, 1]}
-	// forward = {m.m8, m.m9, m.m10}  // Third column
-	fwd = vec3{m[0, 2], m[1, 2], m[2, 2]}
+	fwd, left, up = orientation_from_transform(actor.model.transform)
 	return
 }
 

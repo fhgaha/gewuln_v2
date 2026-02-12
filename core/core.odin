@@ -1,10 +1,7 @@
 package core
 
-import "core:strings"
-
 import "../packages/toml"
 import "core:fmt"
-import "core:math/linalg"
 import r "vendor:raylib"
 
 Flags :: enum {
@@ -44,21 +41,11 @@ main :: proc() {
 	r.SetTextureFilter(font.texture, .BILINEAR)
 	defer r.UnloadFont(font)
 
-	create_actor_from_toml(&main_actor, game_config)
+	main_actor = create_actor_from_toml(game_config)
 
 	game_state.levels["level1"] = create_level(game_config)
 	//load other levels here
 	game_state.cur_level = "level1"
-
-
-	//get metadata
-	custom_props := load_glb_custom_properties(
-		"assets/models/test_rooms/export/test_floor/glb/test_rooms.glb",
-	)
-	actor_pos_update(custom_props.actor_pos)
-	main_actor.yaw = custom_props.actor_yaw
-	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)
-
 
 	render_target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	defer r.UnloadRenderTexture(render_target)

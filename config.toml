@@ -20,4 +20,3 @@ glb = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"
 [[levels.level1.interactables]]
 name = "interactable_h_2"
 glb = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"
-
