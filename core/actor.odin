@@ -108,10 +108,10 @@ actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 	return
 }
 
-actor_pos_update :: proc(delta: vec3) {
-	main_actor.pos += delta
-	main_actor.bounding_box.min += delta
-	main_actor.bounding_box.max += delta
+actor_pos_update :: proc(delta_pos: vec3) {
+	main_actor.pos += delta_pos
+	main_actor.bounding_box.min += delta_pos
+	main_actor.bounding_box.max += delta_pos
 }
 
 
@@ -158,7 +158,9 @@ handle_walk :: proc(dt: f32) {
 
 	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(&main_actor)
 	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, get_cur_level().walk_area_tris[:])
-	actor_pos_update(dpos)
+	// actor_pos_update(dpos)
+	dpos_lerped := r.Vector3MoveTowards(main_actor.pos, dpos, accumulated_time / DT)
+	actor_pos_update(dpos_lerped)
 
 	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
 	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)

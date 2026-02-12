@@ -8,6 +8,7 @@ Flags :: enum {
 	smal_res,
 	show_gizmos,
 	lock_cursor,
+	paused,
 }
 
 Game_State :: struct {
@@ -16,19 +17,23 @@ Game_State :: struct {
 	actor:     Actor,
 }
 
+DT :: 1.0 / 60.0 // 16 ms, 0.016 s
+game_config_data := #load("../config.toml")
+game_config: ^toml.Table
+
 flags: bit_set[Flags]
 input: Input_State
 font: r.Font
 game_state: Game_State
 main_actor: Actor
-game_config: ^toml.Table
 
-game_config_data := #load("../config.toml")
+accumulated_time: f32
+
 
 main :: proc() {
 	flags = {.lock_cursor}
 
-	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT})
+	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_RESIZABLE})
 
 	r.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "gewuln")
 	r.SetTargetFPS(60)
@@ -54,7 +59,11 @@ main :: proc() {
 
 
 	for !r.WindowShouldClose() {
-		dt := r.GetFrameTime()
+		if .paused in flags {
+		} else {
+			accumulated_time += r.GetFrameTime()
+		}
+
 		input = get_player_input()
 
 		//input
@@ -68,9 +77,9 @@ main :: proc() {
 
 		switch main_actor.state {
 		case .IDLE:
-			handle_idle(dt)
+			handle_idle(DT)
 		case .WALK:
-			handle_walk(dt)
+			handle_walk(DT)
 		case .INTERACT:
 			handle_interact()
 		}
@@ -78,7 +87,9 @@ main :: proc() {
 
 		//update
 		update_actor_anim(&main_actor)
-		update_cam(dt)
+		update_cam(DT)
+		
+		accumulated_time -= DT
 
 
 		r.BeginDrawing()
