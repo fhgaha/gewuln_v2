@@ -8,18 +8,20 @@ update_cam :: proc(dt: f32) {
 
 	cam_speed: f32 = 10
 
+	cam := &get_cur_level().cam
+
 	if r.IsKeyDown(.UP) { 	//forward
-		r.CameraMoveForward(&cam, cam_speed * dt, moveInWorldPlane = false)
+		r.CameraMoveForward(cam, cam_speed * dt, moveInWorldPlane = false)
 	}
 	if r.IsKeyDown(.DOWN) { 	//backward
-		r.CameraMoveForward(&cam, -cam_speed * dt, moveInWorldPlane = false)
-		// r.CameraMoveToTarget(&cam, cam_speed * dt);
+		r.CameraMoveForward(cam, -cam_speed * dt, moveInWorldPlane = false)
+		// r.CameraMoveToTarget(cam, cam_speed * dt);
 	}
 	if r.IsKeyDown(.LEFT) {
-		r.CameraMoveRight(&cam, -cam_speed * dt, moveInWorldPlane = false)
+		r.CameraMoveRight(cam, -cam_speed * dt, moveInWorldPlane = false)
 	}
 	if r.IsKeyDown(.RIGHT) {
-		r.CameraMoveRight(&cam, cam_speed * dt, moveInWorldPlane = false)
+		r.CameraMoveRight(cam, cam_speed * dt, moveInWorldPlane = false)
 	}
 
 	//rotations
@@ -27,13 +29,17 @@ update_cam :: proc(dt: f32) {
 	cam_rot_speed: f32 = 0.1
 	mouse_pos_delta: vec2 = r.GetMouseDelta()
 
-	r.CameraPitch(
-		&cam,
-		-mouse_pos_delta.y * cam_rot_speed * dt,
-		lockView = false,
-		rotateAroundTarget = false,
-		rotateUp = false,
-	)
-	r.CameraYaw(&cam, -mouse_pos_delta.x * cam_rot_speed * dt, rotateAroundTarget = true)
-	r.CameraMoveToTarget(&cam, -r.GetMouseWheelMove())	//zoom
+	if .lock_cursor in flags {
+		//тангаж
+		r.CameraPitch(
+			cam,
+			-mouse_pos_delta.y * cam_rot_speed * dt,
+			lockView = false,
+			rotateAroundTarget = false,
+			rotateUp = false,
+		)
+		//курс
+		r.CameraYaw(cam, -mouse_pos_delta.x * cam_rot_speed * dt, rotateAroundTarget = true)
+	}
+	r.CameraMoveToTarget(cam, -r.GetMouseWheelMove()) //zoom
 }

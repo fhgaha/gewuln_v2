@@ -1,10 +1,13 @@
 package core
 
+import "../packages/toml"
 import "core:fmt"
 import "core:math"
+import "core:strings"
 import r "vendor:raylib"
 
 Actor :: struct {
+	initialised:           bool,
 	pos:                   vec3,
 	yaw:                   f32, //in rads
 	speed, rot_speed:      f32,
@@ -33,17 +36,17 @@ Input_State :: struct {
 	wants_interact: bool,
 }
 
-create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool {
+create_actor :: proc(actor_path, collider_path: cstring) -> (actor: Actor, ok: bool) {
 	// Load resources
 	actor_model := r.LoadModel(actor_path)
 	if !r.IsModelValid(actor_model) {
-		return false
+		return {}, false
 	}
 
 	actor_coll_model := r.LoadModel(collider_path)
 	if !r.IsModelValid(actor_coll_model) {
 		r.UnloadModel(actor_model)
-		return false
+		return {}, false
 	}
 
 	// Load animations
@@ -52,24 +55,43 @@ create_actor :: proc(actor: ^Actor, actor_path, collider_path: cstring) -> bool 
 	if anims == nil || anim_count == 0 {
 		r.UnloadModel(actor_model)
 		r.UnloadModel(actor_coll_model)
-		return false
+		return {}, false
 	}
 
 	bb := r.GetModelBoundingBox(actor_coll_model)
 
-	// Assemble the actor
-	actor^ = Actor {
-		speed = 2,
-		rot_speed = 4,
-		model = actor_model,
-		bounding_box_original = bb,
-		bounding_box = bb,
-		state = .IDLE,
-		animator = Animator{anims_count = anim_count, anims = anims},
+	animator := Animator {
+		anims_count = anim_count,
+		anims       = anims,
 	}
-	fill_animation_names(&actor.animator)
+	fill_animation_names(&animator)
 
-	return true
+	actor = Actor {
+		initialised           = true,
+		pos                   = pos_from_transform(actor_model.transform),
+		yaw                   = yaw_from_transform(actor_model.transform),
+		speed                 = 2,
+		rot_speed             = 4,
+		model                 = actor_model,
+		bounding_box_original = bb,
+		bounding_box          = bb,
+		state                 = .IDLE,
+		animator              = animator,
+	}
+	ok = true
+	return
+}
+
+
+create_actor_from_toml :: proc(section: ^toml.Table) -> Actor {
+	model_path := toml.get_string_panic(section, "main_actor", "model")
+	collider_path := toml.get_string_panic(section, "main_actor", "collider")
+	actor, ok := create_actor(
+		strings.clone_to_cstring(model_path),
+		strings.clone_to_cstring(collider_path),
+	)
+	assert(ok)
+	return actor
 }
 
 actor_pos :: proc(actor: ^Actor) -> vec3 {
@@ -82,79 +104,79 @@ actor_dir :: proc(actor: ^Actor) -> vec3 {
 }
 
 actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
-	m: r.Matrix = actor.model.transform
-	// right = {m.m0, m.m1, m.m2}     // First column
-	left = vec3{m[0, 0], m[1, 0], m[2, 0]}
-	// up = {m.m4, m.m5, m.m6}        // Second column
-	up = vec3{m[0, 1], m[1, 1], m[2, 1]}
-	// forward = {m.m8, m.m9, m.m10}  // Third column
-	fwd = vec3{m[0, 2], m[1, 2], m[2, 2]}
+	fwd, left, up = orientation_from_transform(actor.model.transform)
 	return
 }
 
 actor_pos_update :: proc(delta: vec3) {
-	actor.pos += delta
-	actor.bounding_box.min += delta
-	actor.bounding_box.max += delta
+	main_actor.pos += delta
+	main_actor.bounding_box.min += delta
+	main_actor.bounding_box.max += delta
 }
 
 
 //actor states
 
 handle_idle :: proc(dt: f32) {
-	actor.yaw += input.turn_dir * actor.rot_speed * dt
-	if actor.yaw < -r.PI do actor.yaw += 2 * r.PI
-	if actor.yaw > r.PI do actor.yaw -= 2 * r.PI
+	main_actor.yaw += input.turn_dir * main_actor.rot_speed * dt
+	if main_actor.yaw < -r.PI do main_actor.yaw += 2 * r.PI
+	if main_actor.yaw > r.PI do main_actor.yaw -= 2 * r.PI
 
 	// instead of this
 	// rot := r.MatrixRotateY(actor.yaw)
 	// transl := r.MatrixTranslate(actor.pos.x, actor.pos.y, actor.pos.z)
 	// actor.model.transform = transl * rot
 	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
-	actor.model.transform = r.MatrixRotateY(actor.yaw)
+	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)
 
-	play_anim(&actor.animator, .IDLE)
+	play_anim(&main_actor.animator, .IDLE)
 
 	// state transitions	
 	walk_cond := input.move_dir != 0
-	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(interactables[:], actor)
+	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(
+		get_cur_level().interactables[:],
+		main_actor,
+	)
 	interact_cond := input.wants_interact && interact_tgr_found
 	switch {
 	case walk_cond:
-		actor.state = .WALK
+		main_actor.state = .WALK
 		fmt.println("handle_walk")
 	case interact_cond:
-		actor.state = .INTERACT
+		main_actor.state = .INTERACT
 		fmt.println("handle_interact")
 	}
 }
 
 
 handle_walk :: proc(dt: f32) {
-	actor.yaw += input.turn_dir * actor.rot_speed * dt
-	if actor.yaw < -r.PI do actor.yaw += 2 * r.PI
-	if actor.yaw > r.PI do actor.yaw -= 2 * r.PI
+	main_actor.yaw += input.turn_dir * main_actor.rot_speed * dt
+	if main_actor.yaw < -r.PI do main_actor.yaw += 2 * r.PI
+	if main_actor.yaw > r.PI do main_actor.yaw -= 2 * r.PI
 
-	play_anim(&actor.animator, .WALK)
+	play_anim(&main_actor.animator, .WALK)
 
-	desired_dpos: vec3 = input.move_dir * actor.speed * dt * actor_dir(&actor)
-	dpos := resolve_slide(desired_dpos, actor.bounding_box, walk_area_tris[:])
+	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(&main_actor)
+	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, get_cur_level().walk_area_tris[:])
 	actor_pos_update(dpos)
 
 	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
-	actor.model.transform = r.MatrixRotateY(actor.yaw)
+	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)
 
 
 	// state transitions
-	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(interactables[:], actor)
+	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(
+		get_cur_level().interactables[:],
+		main_actor,
+	)
 	interact_cond := interact_tgr_found && input.wants_interact
 	idle_cond := input.move_dir == 0
 	switch {
 	case interact_cond:
-		actor.state = .INTERACT
+		main_actor.state = .INTERACT
 		fmt.println("handle_interact")
 	case idle_cond:
-		actor.state = .IDLE
+		main_actor.state = .IDLE
 		fmt.println("handle_idle")
 	}
 }
@@ -205,17 +227,17 @@ resolve_slide :: proc(desired: vec3, bb: r.BoundingBox, area: []tri3) -> (result
 
 
 handle_interact :: proc() {
-	play_anim(&actor.animator, .INTERACT)
+	play_anim(&main_actor.animator, .INTERACT)
 
 	//state conditions	
-	walk_cond := last_frame_reached(&actor.animator) && input.move_dir != 0
-	idle_cond := last_frame_reached(&actor.animator)
+	walk_cond := last_frame_reached(&main_actor.animator) && input.move_dir != 0
+	idle_cond := last_frame_reached(&main_actor.animator)
 	switch {
 	case walk_cond:
-		actor.state = .WALK
+		main_actor.state = .WALK
 		fmt.println("handle_idle")
 	case idle_cond:
-		actor.state = .IDLE
+		main_actor.state = .IDLE
 		fmt.println("handle_idle")
 	}
 }
