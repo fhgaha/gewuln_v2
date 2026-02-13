@@ -2,6 +2,7 @@ package core
 
 import "../packages/toml"
 import "core:fmt"
+import "core:mem"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -16,12 +17,13 @@ Level :: struct {
 	interactables:  [dynamic]Interactable,
 }
 
+
 create_level :: proc(section: ^toml.Table) -> Level {
-	level_1_table := toml.get_table_panic(game_config, "levels", "level1")
+	level_1_table := must(toml.get_table(game_config, "levels", "level1"))
 
 	// camera
 
-	cam_pos_table := toml.get_list_panic(level_1_table, "camera", "pos")
+	cam_pos_table := must(toml.get_list(level_1_table, "camera", "pos"))
 	cam_pos: [3]f32
 	for i in 0 ..< 3 {
 		#partial switch v in cam_pos_table[i] {
@@ -31,7 +33,8 @@ create_level :: proc(section: ^toml.Table) -> Level {
 		}
 	}
 
-	cam_target_table := toml.get_list_panic(level_1_table, "camera", "target")
+	cam_target_table := must(toml.get_list(level_1_table, "camera", "target"))
+
 	cam_target: [3]f32
 	for i in 0 ..< 3 {
 		#partial switch v in cam_target_table[i] {
@@ -43,9 +46,9 @@ create_level :: proc(section: ^toml.Table) -> Level {
 
 	// room
 
-	room_name := toml.get_string_panic(level_1_table, "name")
+	room_name := must(toml.get_string(level_1_table, "name"))
 
-	room_glb_str := toml.get_string_panic(level_1_table, "room_glb")
+	room_glb_str := must(toml.get_string(level_1_table, "room_glb"))
 	room_glb_cstr := strings.clone_to_cstring(room_glb_str)
 	room := r.LoadModel(room_glb_cstr)
 	delete(room_glb_cstr)
@@ -53,7 +56,7 @@ create_level :: proc(section: ^toml.Table) -> Level {
 
 	// walk area
 
-	walk_area_glb_str := toml.get_string_panic(level_1_table, "walk_area_glb")
+	walk_area_glb_str := must(toml.get_string(level_1_table, "walk_area_glb"))
 	walk_area_glb_cstr := strings.clone_to_cstring(walk_area_glb_str)
 	walk_area := r.LoadModel(walk_area_glb_cstr)
 	delete(walk_area_glb_cstr)
@@ -67,11 +70,11 @@ create_level :: proc(section: ^toml.Table) -> Level {
 
 	interactables: [dynamic]Interactable
 
-	interactables_table := toml.get_list_panic(level_1_table, "interactables")
+	interactables_table := must(toml.get_list(level_1_table, "interactables"))
 	for intr in interactables_table {
 		intr_fields_table := intr.(^toml.Table)
-		intr_name_str := toml.get_string_panic(intr_fields_table, "name")
-		intr_glb_str := toml.get_string_panic(intr_fields_table, "glb")
+		intr_name_str := must(toml.get_string(intr_fields_table, "name"))
+		intr_glb_str := must(toml.get_string(intr_fields_table, "glb"))
 
 		glb_toml_cstr := strings.clone_to_cstring(intr_glb_str)
 		append(
@@ -106,7 +109,7 @@ create_level :: proc(section: ^toml.Table) -> Level {
 	// custom props
 
 	assert(main_actor.initialised)
-	custom_props := load_glb_custom_properties(room_glb_str)
+	custom_props := load_custom_props_from_glb(room_glb_str)
 	actor_pos_update(custom_props.actor_pos)
 	main_actor.yaw = custom_props.actor_yaw
 	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)

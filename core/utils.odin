@@ -122,7 +122,7 @@ Custom_Properties :: struct {
 	actor_yaw: f32,
 }
 
-load_glb_custom_properties :: proc(glb_path: string) -> Custom_Properties {
+load_custom_props_from_glb :: proc(glb_path: string) -> Custom_Properties {
 	json_data := get_json_chunk_from_glb(glb_path)
 	defer json.destroy_value(json_data)
 
@@ -200,4 +200,12 @@ get_player_input :: proc() -> Input_State {
 
 print :: proc(args: ..any) {
 	fmt.println("here: ", args)
+}
+
+@(require_results)
+must :: proc(val: $T, ok: bool, loc := #caller_location) -> T {
+    if !ok {
+        panic("Value is not ok!", loc)
+    }
+    return val
 }
