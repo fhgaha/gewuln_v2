@@ -17,13 +17,33 @@ Level :: struct {
 	interactables:  [dynamic]Interactable,
 }
 
+create_levels :: proc(
+	section: ^toml.Table,
+) -> (
+	levels: map[string]Level,
+	first_level_name: string,
+) {
 
-create_level :: proc(section: ^toml.Table) -> Level {
-	level_1_table := must(toml.get_table(game_config, "levels", "level1"))
+
+	levels_table, ok2 := toml.get_list(section, "levels"); assert(ok2)
+
+	print(section)
+
+	ok1: bool
+	first_level_name, ok1 = toml.get_string(section, "first_level_name"); assert(ok1)
+
+	for lvl_table, i in levels_table {
+		lvl := create_level(lvl_table.(^toml.Table))
+		levels[lvl.name] = lvl
+	}
+	return
+}
+
+create_level :: proc(level_table: ^toml.Table) -> Level {
 
 	// camera
 
-	cam_pos_table := must(toml.get_list(level_1_table, "camera", "pos"))
+	cam_pos_table := must(toml.get_list(level_table, "camera", "pos"))
 	cam_pos: [3]f32
 	for i in 0 ..< 3 {
 		#partial switch v in cam_pos_table[i] {
@@ -33,7 +53,7 @@ create_level :: proc(section: ^toml.Table) -> Level {
 		}
 	}
 
-	cam_target_table := must(toml.get_list(level_1_table, "camera", "target"))
+	cam_target_table := must(toml.get_list(level_table, "camera", "target"))
 
 	cam_target: [3]f32
 	for i in 0 ..< 3 {
@@ -46,9 +66,9 @@ create_level :: proc(section: ^toml.Table) -> Level {
 
 	// room
 
-	room_name := must(toml.get_string(level_1_table, "name"))
+	room_name := must(toml.get_string(level_table, "name"))
 
-	room_glb_str := must(toml.get_string(level_1_table, "room_glb"))
+	room_glb_str := must(toml.get_string(level_table, "room_glb"))
 	room_glb_cstr := strings.clone_to_cstring(room_glb_str)
 	room := r.LoadModel(room_glb_cstr)
 	delete(room_glb_cstr)
@@ -56,7 +76,7 @@ create_level :: proc(section: ^toml.Table) -> Level {
 
 	// walk area
 
-	walk_area_glb_str := must(toml.get_string(level_1_table, "walk_area_glb"))
+	walk_area_glb_str := must(toml.get_string(level_table, "walk_area_glb"))
 	walk_area_glb_cstr := strings.clone_to_cstring(walk_area_glb_str)
 	walk_area := r.LoadModel(walk_area_glb_cstr)
 	delete(walk_area_glb_cstr)
@@ -64,13 +84,13 @@ create_level :: proc(section: ^toml.Table) -> Level {
 
 	walk_area_tris: [dynamic]tri3
 	extract_tris(&walk_area, &walk_area_tris)
-	assert(len(walk_area_tris) > 0)
+	// assert(len(walk_area_tris) > 0)
 
 	// interactables
 
 	interactables: [dynamic]Interactable
 
-	interactables_table := must(toml.get_list(level_1_table, "interactables"))
+	interactables_table := must(toml.get_list(level_table, "interactables"))
 	for intr in interactables_table {
 		intr_fields_table := intr.(^toml.Table)
 		intr_name_str := must(toml.get_string(intr_fields_table, "name"))
@@ -91,7 +111,7 @@ create_level :: proc(section: ^toml.Table) -> Level {
 	}
 
 	level := Level {
-		name = "leve1",
+		name = room_name,
 		cam = r.Camera3D {
 			position = cam_pos,
 			target = cam_target,
@@ -108,11 +128,11 @@ create_level :: proc(section: ^toml.Table) -> Level {
 
 	// custom props
 
-	assert(main_actor.initialised)
+	assert(main_actor.initialised, "actor must be initialised before placing it into a room")
 	custom_props := load_custom_props_from_glb(room_glb_str)
 	actor_pos_update(custom_props.actor_pos)
 	main_actor.yaw = custom_props.actor_yaw
-	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)
+	main_actor.model.transform = r.MatrixRotateY(custom_props.actor_yaw)
 
 	return level
 }

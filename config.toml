@@ -1,54 +1,56 @@
+first_level_name = "test_room"
+
 [main_actor]
-model = "assets/models/mona_sax/export/glb/mona.glb"
+model    = "assets/models/mona_sax/export/glb/mona.glb"
 collider = "assets/models/mona_sax/export/glb/collider.glb"
 
-[levels]
-
-[levels.level1]
-name = "level1"
-room_glb = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
+[[levels]]
+name          = "test_room"
+room_glb      = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
 walk_area_glb = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
 
-[levels.level1.camera]
-pos = [1.0, 2.0, 4.0]
-target = [0.0, 1.0, 0.0]
+	#TODO use camera from blender
+	[levels.camera]
+	pos    = [1.0, 2.0, 4.0]
+	target = [0.0, 1.0, 0.0]
 
-[[levels.level1.interactables]]
-name = "interactable_h_half"
-glb = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"
+	[[levels.interactables]]
+	name = "interactable_h_half"
+	glb  = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"
 
-[[levels.level1.interactables]]
-name = "interactable_h_2"
-glb = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"
-
-
-# [[levels]]
-# name = "test_room"
-# room_glb = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
-# walk_area_glb = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
-
-# 	#TODO use camera from blender
-# 	[levels.camera]
-# 	pos = [1.0, 2.0, 4.0]
-# 	target = [0.0, 1.0, 0.0]
-	
-# 	[[levels.interactables]]
-# 	name = "interactable_h_half"
-# 	glb = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"
-	
-# 	[[levels.interactables]]
-# 	name = "interactable_h_2"
-# 	glb = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"
+	[[levels.interactables]]
+	name = "interactable_h_2"
+	glb  = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"
 
 # [[levels]]
-# name = "another_test_room"
-# room_glb = "assets/models/basement/glb/basement.glb"
+# name          = "another_test_room"
+# room_glb      = "assets/models/basement/glb/basement.glb"
 # walk_area_glb = "assets/models/basement/glb/walk_area.glb"
 
 # 	[levels.camera]
-# 	pos = [5.0, 3.0, 10.0]
+# 	pos    = [5.0, 3.0, 10.0]
 # 	target = [0.0, 0.0, 0.0]
 
 # 	[[levels.interactables]]
 # 	name = "rusty_lever"
-# 	glb = "assets/models/basement/glb/lever.glb"
+# 	glb  = "assets/models/basement/glb/lever.glb"
+
+
+	# [levels]
+
+	# [levels.level1]
+	# name = "level1"
+	# room_glb = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
+	# walk_area_glb = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
+
+	# [levels.level1.camera]
+	# pos = [1.0, 2.0, 4.0]
+	# target = [0.0, 1.0, 0.0]
+
+	# [[levels.level1.interactables]]
+	# name = "interactable_h_half"
+	# glb = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"
+
+	# [[levels.level1.interactables]]
+	# name = "interactable_h_2"
+	# glb = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"

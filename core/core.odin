@@ -50,9 +50,11 @@ main :: proc() {
 
 	main_actor = create_actor_from_toml(game_config)
 
-	game_state.levels["level1"] = create_level(game_config)
-	//load other levels here
-	game_state.cur_level = "level1"
+	// game_state.levels["level1"] = create_level(game_config)
+	// //load other levels here
+	// game_state.cur_level = "level1"
+	
+	game_state.levels, game_state.cur_level = create_levels(game_config)
 
 	render_target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	defer r.UnloadRenderTexture(render_target)
