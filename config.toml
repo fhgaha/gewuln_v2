@@ -1,5 +1,5 @@
-# first_level_name = "test_room"
-first_level_name = "another_test_room"
+first_level_name = "test_room"
+# first_level_name = "another_test_room"
 
 [main_actor]
 model    = "assets/models/mona_sax/export/glb/mona.glb"

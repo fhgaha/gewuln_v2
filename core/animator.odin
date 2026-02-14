@@ -35,7 +35,7 @@ play_anim :: proc(animator: ^Animator, state: Actor_State) {
 	animator.anim_cur_frame = 0
 }
 
-update_actor_anim :: proc(actor: ^Actor) {
+actor_anim_update :: proc(actor: ^Actor) {
 	animator: ^Animator = &actor.animator
 	anim: r.ModelAnimation = animator.anims[animator.anim_idx]
 	animator.anim_cur_frame = (animator.anim_cur_frame + 1) % anim.frameCount

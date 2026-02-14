@@ -2,6 +2,7 @@ package core
 
 import "../packages/toml"
 import "core:fmt"
+import "core:math"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -107,26 +108,29 @@ actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 	return
 }
 
-actor_pos_update :: proc(delta_pos: vec3) {
-	main_actor.pos += delta_pos
-	main_actor.bounding_box.min += delta_pos
-	main_actor.bounding_box.max += delta_pos
+actor_update_pos :: proc(actor: ^Actor, delta_pos: vec3) {
+	actor.pos += delta_pos
+	actor.bounding_box.min += delta_pos
+	actor.bounding_box.max += delta_pos
 }
 
-
-//actor states
-
-handle_idle :: proc(dt: f32) {
-	main_actor.yaw += input.turn_dir * main_actor.rot_speed * dt
-	if main_actor.yaw < -r.PI do main_actor.yaw += 2 * r.PI
-	if main_actor.yaw > r.PI do main_actor.yaw -= 2 * r.PI
+actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
+	new_yaw := clamp_angle(yaw)
+	actor.yaw = new_yaw
 
 	// instead of this
 	// rot := r.MatrixRotateY(actor.yaw)
 	// transl := r.MatrixTranslate(actor.pos.x, actor.pos.y, actor.pos.z)
 	// actor.model.transform = transl * rot
 	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
-	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)
+	actor.model.transform = r.MatrixRotateY(new_yaw)
+}
+
+//actor states
+
+handle_idle :: proc(dt: f32) {
+	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
+	actor_update_yaw(&main_actor, yaw)
 
 	play_anim(&main_actor.animator, .IDLE)
 
@@ -149,18 +153,14 @@ handle_idle :: proc(dt: f32) {
 
 
 handle_walk :: proc(dt: f32) {
-	main_actor.yaw += input.turn_dir * main_actor.rot_speed * dt
-	if main_actor.yaw < -r.PI do main_actor.yaw += 2 * r.PI
-	if main_actor.yaw > r.PI do main_actor.yaw -= 2 * r.PI
+	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
+	actor_update_yaw(&main_actor, yaw)
 
 	play_anim(&main_actor.animator, .WALK)
 
 	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(&main_actor)
 	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, get_cur_level().walk_area_tris[:])
-	actor_pos_update(dpos)
-
-	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
-	main_actor.model.transform = r.MatrixRotateY(main_actor.yaw)
+	actor_update_pos(&main_actor, dpos)
 
 
 	// state transitions
