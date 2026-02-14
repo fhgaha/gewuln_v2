@@ -161,7 +161,6 @@ load_custom_props_from_glb :: proc(glb_path: string) -> Custom_Properties {
 		}
 	}
 
-
 	return Custom_Properties{actor_pos = transl, actor_yaw = yaw}
 }
 
@@ -204,8 +203,6 @@ print :: proc(args: ..any) {
 
 @(require_results)
 must :: proc(val: $T, ok: bool, loc := #caller_location) -> T {
-    if !ok {
-        panic("Value is not ok!", loc)
-    }
-    return val
+	if !ok do panic("Value is not ok!", loc)
+	return val
 }

@@ -56,6 +56,14 @@ main :: proc() {
 	
 	game_state.levels, game_state.cur_level = create_levels(game_config)
 
+	// actor_pos_update(custom_props.actor_pos)
+	// main_actor.yaw = custom_props.actor_yaw
+	// main_actor.model.transform = r.MatrixRotateY(custom_props.actor_yaw)
+	
+	actor_pos_update(get_cur_level().actor.pos)
+	main_actor.yaw = get_cur_level().actor.yaw
+	main_actor.model.transform = r.MatrixRotateY(get_cur_level().actor.yaw)
+
 	render_target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	defer r.UnloadRenderTexture(render_target)
 

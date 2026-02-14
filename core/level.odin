@@ -15,6 +15,10 @@ Level :: struct {
 	walk_area:      r.Model,
 	walk_area_tris: [dynamic]tri3,
 	interactables:  [dynamic]Interactable,
+	actor:          struct {
+		pos: vec3,
+		yaw: f32,
+	},
 }
 
 create_levels :: proc(
@@ -23,11 +27,7 @@ create_levels :: proc(
 	levels: map[string]Level,
 	first_level_name: string,
 ) {
-
-
 	levels_table, ok2 := toml.get_list(section, "levels"); assert(ok2)
-
-	print(section)
 
 	ok1: bool
 	first_level_name, ok1 = toml.get_string(section, "first_level_name"); assert(ok1)
@@ -110,6 +110,11 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 		delete(glb_toml_cstr)
 	}
 
+	// custom props
+
+	assert(main_actor.initialised, "actor must be initialised before placing it into a room")
+	custom_props := load_custom_props_from_glb(room_glb_str)
+
 	level := Level {
 		name = room_name,
 		cam = r.Camera3D {
@@ -124,15 +129,8 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 		walk_area = walk_area,
 		walk_area_tris = walk_area_tris,
 		interactables = interactables,
+		actor = {pos = custom_props.actor_pos, yaw = custom_props.actor_yaw},
 	}
-
-	// custom props
-
-	assert(main_actor.initialised, "actor must be initialised before placing it into a room")
-	custom_props := load_custom_props_from_glb(room_glb_str)
-	actor_pos_update(custom_props.actor_pos)
-	main_actor.yaw = custom_props.actor_yaw
-	main_actor.model.transform = r.MatrixRotateY(custom_props.actor_yaw)
 
 	return level
 }
