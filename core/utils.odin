@@ -8,7 +8,9 @@ import "core:os"
 import "core:strings"
 import r "vendor:raylib"
 
-//math
+//
+// math
+//                            
 to_vec2 :: proc(v: vec3) -> vec2 {
 	return vec2{v.x, v.z}
 }
@@ -92,8 +94,9 @@ bounding_box_inside_walk_area :: proc(
 	return pt0_intersects && pt1_intersects && pt2_intersects && pt3_intersects
 }
 
-
-//meshes
+//
+// meshes
+//
 extract_tris :: proc(model: ^r.Model, out: ^[dynamic]tri3) {
 	tris: [dynamic]tri3
 	defer delete(tris)
@@ -122,6 +125,8 @@ extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri3) {
 		}
 	}
 }
+
+
 
 Custom_Properties :: struct {
 	actor_pos: vec3,
@@ -193,12 +198,13 @@ get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
 	return parsed
 }
 
-
+//
 // Helper to gather input in one place (e.g., in your main loop)
+//
 get_player_input :: proc() -> Input_State {
 	return Input_State {
-		move_dir = f32(int(r.IsKeyDown(.W))) - f32(int(r.IsKeyDown(.S))),
-		turn_dir = f32(int(r.IsKeyDown(.A))) - f32(int(r.IsKeyDown(.D))),
+		move_dir = f32(i32(r.IsKeyDown(.W))) - f32(i32(r.IsKeyDown(.S))),
+		turn_dir = f32(i32(r.IsKeyDown(.A))) - f32(i32(r.IsKeyDown(.D))),
 		wants_interact = r.IsKeyPressed(.E),
 	}
 }

@@ -1,5 +1,5 @@
-# first_level_name = "test_room"
-first_level_name = "another_test_room"
+first_level_name = "test_room"
+# first_level_name = "another_test_room"
 
 [main_actor]
 model    = "assets/models/mona_sax/export/glb/mona.glb"
@@ -16,12 +16,16 @@ walk_area_glb = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
 	target = [0.0, 1.0, 0.0]
 
 	[[levels.interactables]]
-	name = "interactable_h_half"
-	glb  = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"
+	type               = "door"
+	name               = "interactable_h_half"
+	connected_lvl_name = "another_test_room"
+	glb                = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"
 
 	[[levels.interactables]]
-	name = "interactable_h_2"
-	glb  = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"
+	type               = "door"
+	name               = "interactable_h_2"
+	connected_lvl_name = "another_test_room"
+	glb                = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"
 
 [[levels]]
 name          = "another_test_room"
@@ -33,6 +37,8 @@ walk_area_glb = "assets/models/another_test_room/export/glb/walk_area.glb"
 	target = [0.0, 0.0, 0.0]
 
 	[[levels.interactables]]
-	name = "rusty_lever"
 	#TODO mock here
+	type = "none"
+	name = "rusty_lever"
+	connected_lvl_name = ""
 	glb = "assets/models/another_test_room/export/glb/walk_area.glb"

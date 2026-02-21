@@ -8,17 +8,18 @@ import r "vendor:raylib"
 
 
 Level :: struct {
-	name:           string,
-	cam:            r.Camera3D,
-	cam_mode:       r.CameraMode,
-	room:           r.Model,
-	walk_area:      r.Model,
-	walk_area_tris: [dynamic]tri3,
-	interactables:  [dynamic]Interactable,
-	actor:          struct {
+	name:              string,
+	cam:               r.Camera3D,
+	cam_mode:          r.CameraMode,
+	room:              r.Model,
+	walk_area:         r.Model,
+	walk_area_tris:    [dynamic]tri3,
+	interactables:     [dynamic]Interactable,
+	actor:             struct {
 		pos: vec3,
 		yaw: f32,
 	},
+	intersected_intrs: [dynamic]Interactable, //currently colliding with main actor interactables
 }
 
 create_levels :: proc(
@@ -94,17 +95,31 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	for intr in interactables_table {
 		intr_fields_table := intr.(^toml.Table)
 		intr_name_str := must(toml.get_string(intr_fields_table, "name"))
+		intr_type_str := must(toml.get_string(intr_fields_table, "type"))
+		intr_type, ok := string_to_interactable(intr_type_str); assert(ok)
 		intr_glb_str := must(toml.get_string(intr_fields_table, "glb"))
-
 		glb_toml_cstr := strings.clone_to_cstring(intr_glb_str)
+
+		intr_data: union {
+			Door_Data,
+		}
+		print(intr_type == .Door, intr_type)
+
+		if intr_type == .Door {
+			intr_data = Door_Data {
+				connected_level_name = must(
+					toml.get_string(intr_fields_table, "connected_lvl_name"),
+				),
+			}
+		}
+
 		append(
 			&interactables,
 			Interactable {
 				name = intr_name_str,
+				type = intr_type,
 				model = r.LoadModel(glb_toml_cstr),
-				action = proc(intr: Interactable) {
-					// fmt.printfln("action of %s", name_)
-				},
+				data = intr_data,
 			},
 		)
 		delete(glb_toml_cstr)
@@ -137,22 +152,46 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 
 destroy_level :: proc() {}
 
-load_level :: proc(lvl: ^Level) {}
+load_level :: proc(lvl: ^Level) {
+}
 
 unload_level :: proc(lvl: ^Level) {
-	cur_lvl := get_cur_level()
+	cur_lvl := cur_level()
 
-	r.UnloadModel(cur_lvl.walk_area)
-	//TODO the rest
+	// r.UnloadModel(cur_lvl.walk_area)
+	// r.UnloadModel(cur_lvl.room)
+
+
+	// Level :: struct {
+	// 	name:              string,
+	// 	cam:               r.Camera3D,
+	// 	cam_mode:          r.CameraMode,
+	// 	room:              r.Model,
+	// 	walk_area:         r.Model,
+	// 	walk_area_tris:    [dynamic]tri3,
+	// 	interactables:     [dynamic]Interactable,
+	// 	actor:             struct {
+	// 		pos: vec3,
+	// 		yaw: f32,
+	// 	},
+	// 	intersected_intrs: [dynamic]Interactable,	//currently colliding with main actor interactables
+	// }
+
+
 }
 
 change_level :: proc(state: ^Game_State, next: ^Level) {
-	unload_level(get_cur_level())
+	print("entered cnage level")
+	print(cur_level().name)
+
+	unload_level(cur_level())
 	load_level(next)
 	state.cur_level = next.name
+
+	print(cur_level().name)
 }
 
-get_cur_level :: proc() -> ^Level {
+cur_level :: proc() -> ^Level {
 	level_ptr, ok := &game_state.levels[game_state.cur_level]
 	if !ok {
 		fmt.print("Available levels: ")

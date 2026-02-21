@@ -51,8 +51,8 @@ main :: proc() {
 	main_actor = create_actor_from_toml(game_config)
 	game_state.levels, game_state.cur_level = create_levels(game_config)
 
-	actor_update_pos(&main_actor, get_cur_level().actor.pos)
-	actor_update_yaw(&main_actor, get_cur_level().actor.yaw)
+	actor_update_pos(&main_actor, cur_level().actor.pos)
+	actor_update_yaw(&main_actor, cur_level().actor.yaw)
 
 	render_target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	defer r.UnloadRenderTexture(render_target)
@@ -88,7 +88,6 @@ main :: proc() {
 			case .INTERACT:
 				handle_interact()
 			}
-
 
 			//update
 			actor_anim_update(&main_actor)
@@ -135,12 +134,9 @@ main :: proc() {
 render_3d_scene :: proc() {
 	r.ClearBackground(DARK)
 
-	r.BeginMode3D(get_cur_level().cam)
+	r.BeginMode3D(cur_level().cam)
 	{
-		r.DrawModel(get_cur_level().room, vec3{0, 0, 0}, 1, r.GRAY)
-		if .show_gizmos in flags {
-			draw_interactables()
-		}
+		r.DrawModel(cur_level().room, vec3{0, 0, 0}, 1, r.GRAY)
 
 		r.DrawModel(main_actor.model, main_actor.pos, 1, r.WHITE)
 		// r.DrawModelWires(actor.model, actor.pos, 1, r.GREEN)
@@ -148,6 +144,8 @@ render_3d_scene :: proc() {
 		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
 
 		if .show_gizmos in flags {
+			draw_interactables()
+
 			r.DrawBoundingBox(main_actor.bounding_box, r.MAGENTA)
 
 			draw_walking_area()
@@ -159,7 +157,7 @@ render_3d_scene :: proc() {
 
 
 draw_gizmo :: proc() {
-	dist := r.Vector3Distance(get_cur_level().cam.position, vec3{0, 0, 0})
+	dist := r.Vector3Distance(cur_level().cam.position, vec3{0, 0, 0})
 	r.DrawCylinderEx(vec3{0, 0, 0}, vec3{1, 0, 0} * dist, 0.02, 0.02, 2, r.RED)
 	r.DrawCylinderEx(vec3{0, 0, 0}, vec3{0, 1, 0} * dist, 0.02, 0.02, 2, r.GREEN)
 	r.DrawCylinderEx(vec3{0, 0, 0}, vec3{0, 0, 1} * dist, 0.02, 0.02, 2, r.BLUE)
@@ -177,7 +175,7 @@ draw_fps :: proc() {
 }
 
 draw_walking_area :: proc() {
-	for &tr in get_cur_level().walk_area_tris {
+	for &tr in cur_level().walk_area_tris {
 		r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
 		r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
 		r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)

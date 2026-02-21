@@ -137,7 +137,7 @@ handle_idle :: proc(dt: f32) {
 	// state transitions	
 	walk_cond := input.move_dir != 0
 	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(
-		get_cur_level().interactables[:],
+		cur_level().interactables[:],
 		main_actor,
 	)
 	interact_cond := input.wants_interact && interact_tgr_found
@@ -159,15 +159,17 @@ handle_walk :: proc(dt: f32) {
 	play_anim(&main_actor.animator, .WALK)
 
 	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(&main_actor)
-	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, get_cur_level().walk_area_tris[:])
+	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, cur_level().walk_area_tris[:])
 	actor_update_pos(&main_actor, dpos)
 
 
 	// state transitions
 	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(
-		get_cur_level().interactables[:],
+		cur_level().interactables[:],
 		main_actor,
 	)
+	cur_level().intersected_intrs = interact_tgr
+
 	interact_cond := interact_tgr_found && input.wants_interact
 	idle_cond := input.move_dir == 0
 	switch {
@@ -228,6 +230,9 @@ resolve_slide :: proc(desired: vec3, bb: r.BoundingBox, area: []tri3) -> (result
 handle_interact :: proc() {
 	play_anim(&main_actor.animator, .INTERACT)
 
+	//get the interactable
+	interact()
+
 	//state conditions	
 	walk_cond := last_frame_reached(&main_actor.animator) && input.move_dir != 0
 	idle_cond := last_frame_reached(&main_actor.animator)
@@ -246,15 +251,18 @@ get_interactable_colliding_actor :: proc(
 	interactables: []Interactable,
 	actor: Actor,
 ) -> (
-	interactable: Interactable,
+	colliding: [dynamic]Interactable,
 	found: bool,
 ) {
 	for &intr in interactables {
 		col := r.CheckCollisionBoxes(actor.bounding_box, r.GetModelBoundingBox(intr.model))
 		if (col) {
-			return intr, true
+			append(&colliding, intr)
 		}
 	}
 
-	return {}, false
+	if len(colliding) == 0 do return
+
+	found = true
+	return
 }
