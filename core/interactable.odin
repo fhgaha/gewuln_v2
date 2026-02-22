@@ -5,26 +5,32 @@ import r "vendor:raylib"
 Interactable_Type :: enum {
 	None,
 	Door,
+	Dialogue,
 }
 
 Door_Data :: struct {
 	connected_level_name: string,
 }
 
+Dialogue_Data :: struct {}
+
+Interactable_Data_Union :: union {
+	Door_Data,
+	Dialogue_Data,
+}
+
 Interactable :: struct {
 	name:  string,
 	type:  Interactable_Type,
 	model: r.Model,
-	data:  union {
-		Door_Data,
-	},
+	data:  Interactable_Data_Union,
 }
 
 @(private = "file")
 Interactables_Naming_Table :: [?]struct {
 	str:  string,
 	type: Interactable_Type,
-}{{"none", .None}, {"door", .Door}}
+}{{"none", .None}, {"door", .Door}, {"dialogue", .Dialogue}}
 
 
 interact :: proc() {
@@ -34,7 +40,8 @@ interact :: proc() {
 			assert(dd.connected_level_name != "")
 			assert(dd.connected_level_name in game_state.levels, "No such key in levels!")
 			change_level(&game_state, &game_state.levels[dd.connected_level_name])
-			break
+		case Dialogue_Data:
+
 		case:
 		// no action or default
 		}

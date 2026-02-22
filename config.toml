@@ -16,16 +16,28 @@ walk_area_glb = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
 	target = [0.0, 1.0, 0.0]
 
 	[[levels.interactables]]
-	type               = "door"
-	name               = "interactable_h_half"
-	connected_lvl_name = "another_test_room"
-	glb                = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"
+	type = "door"
+	name = "interactable_h_half"
+	glb  = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"
+		[levels.interactables.data]
+		connected_lvl_name = "another_test_room"
 
 	[[levels.interactables]]
-	type               = "door"
-	name               = "interactable_h_2"
-	connected_lvl_name = "another_test_room"
-	glb                = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"
+	type = "dialogue"
+	name = "interactable_h_2"
+	glb  = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"
+
+		[levels.interactables.data]
+
+			[[levels.interactables.data.lines]]
+			character = "bob"
+			text      = "Well, it's because the sunlight interacts with the atmosphere…"
+			direction = "smiling"
+
+			[[levels.interactables.data.lines]]
+			character = "alice"
+			text      = "I never knew physics could be so poetic."
+			direction = "gazing at the sky"
 
 [[levels]]
 name          = "another_test_room"
@@ -40,5 +52,5 @@ walk_area_glb = "assets/models/another_test_room/export/glb/walk_area.glb"
 	#TODO mock here
 	type = "none"
 	name = "rusty_lever"
-	connected_lvl_name = ""
-	glb = "assets/models/another_test_room/export/glb/walk_area.glb"
+	glb  = "assets/models/another_test_room/export/glb/walk_area.glb"
+		[levels.interactables.data]

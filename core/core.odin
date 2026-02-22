@@ -14,7 +14,10 @@ Flags :: enum {
 Game_State :: struct {
 	cur_level: string,
 	levels:    map[string]Level,
-	actor:     Actor,
+}
+
+Actors_Names :: enum {
+	mona,
 }
 
 DT :: 1.0 / 60.0 // 16 ms, 0.016 s
@@ -26,7 +29,7 @@ input: Input_State
 font: r.Font
 game_state: Game_State
 main_actor: Actor
-
+actors: [Actors_Names]Actor	// all actors including main actor
 accumulated_time: f32
 
 
