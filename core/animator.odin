@@ -13,7 +13,7 @@ Animator :: struct {
 
 last_frame_reached :: proc(animator: ^Animator) -> bool {
 	anim := animator.anims[animator.anim_idx]
-	return (animator.anim_cur_frame + 1) == anim.frameCount
+	return animator.anim_cur_frame == anim.frameCount - 1
 }
 
 fill_animation_names :: proc(animator: ^Animator) {

@@ -29,7 +29,7 @@ input: Input_State
 font: r.Font
 game_state: Game_State
 main_actor: Actor
-actors: [Actors_Names]Actor	// all actors including main actor
+actors: [Actors_Names]Actor // all actors including main actor
 accumulated_time: f32
 
 

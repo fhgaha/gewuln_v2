@@ -35,11 +35,11 @@ Interactables_Naming_Table :: [?]struct {
 
 interact :: proc() {
 	for intr in cur_level().intersected_intrs {
-		switch dd in intr.data {
+		switch d in intr.data {
 		case Door_Data:
-			assert(dd.connected_level_name != "")
-			assert(dd.connected_level_name in game_state.levels, "No such key in levels!")
-			change_level(&game_state, &game_state.levels[dd.connected_level_name])
+			assert(d.connected_level_name != "")
+			assert(d.connected_level_name in game_state.levels, "No such key in levels!")
+			change_level(&game_state, &game_state.levels[d.connected_level_name])
 		case Dialogue_Data:
 
 		case:
