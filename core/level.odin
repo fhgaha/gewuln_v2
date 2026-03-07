@@ -10,7 +10,6 @@ import r "vendor:raylib"
 Level :: struct {
 	name:              string,
 	cam:               r.Camera3D,
-	cam_mode:          r.CameraMode,
 	room:              r.Model,
 	walk_area:         r.Model,
 	walk_area_tris:    [dynamic]tri3,
@@ -139,7 +138,6 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 			fovy = FOV_DEG / 2,
 			projection = .PERSPECTIVE,
 		},
-		cam_mode = r.CameraMode.CUSTOM,
 		room = room,
 		walk_area = walk_area,
 		walk_area_tris = walk_area_tris,
@@ -155,7 +153,7 @@ destroy_level :: proc() {
 }
 
 load_level :: proc(lvl: ^Level) {
-
+	
 }
 
 unload_level :: proc(lvl: ^Level) {

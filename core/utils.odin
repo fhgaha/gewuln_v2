@@ -10,7 +10,7 @@ import r "vendor:raylib"
 
 //
 // math
-//                            
+//
 to_vec2 :: proc(v: vec3) -> vec2 {
 	return vec2{v.x, v.z}
 }
@@ -37,6 +37,9 @@ clamp_angle :: proc(rad: f32) -> f32 {
 	return rad - 2.0 * math.PI * math.floor((rad + math.PI) / (2.0 * math.PI))
 }
 
+vec3_lerp :: proc(a, b: vec3, t: f32) -> vec3 {
+	return a + (b - a) * t
+}
 
 pos_from_transform :: proc(m: r.Matrix) -> vec3 {
 	return vec3{m[0, 3], m[1, 3], m[2, 3]}
@@ -125,7 +128,6 @@ extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri3) {
 		}
 	}
 }
-
 
 
 Custom_Properties :: struct {

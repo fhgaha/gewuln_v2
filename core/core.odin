@@ -5,10 +5,12 @@ import "core:fmt"
 import r "vendor:raylib"
 
 Flags :: enum {
-	smal_res,
+	small_res,
 	show_gizmos,
 	lock_cursor,
 	paused,
+	camera_debug,
+	camera_follow,
 }
 
 Game_State :: struct {
@@ -34,7 +36,7 @@ accumulated_time: f32
 
 
 main :: proc() {
-	flags = {.lock_cursor}
+	flags = {.lock_cursor, .camera_debug}
 
 	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_RESIZABLE})
 
@@ -58,6 +60,7 @@ main :: proc() {
 	actor_update_yaw(&main_actor, cur_level().actor.yaw)
 
 	render_target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
+	// r.SetTextureFilter(render_target.texture, .BILINEAR)
 	defer r.UnloadRenderTexture(render_target)
 
 
@@ -75,7 +78,7 @@ main :: proc() {
 			input = get_player_input()
 
 			//input
-			if r.IsKeyReleased(.ONE) do flags ~= {.smal_res}
+			if r.IsKeyReleased(.ONE) do flags ~= {.small_res}
 			if r.IsKeyReleased(.TWO) do flags ~= {.show_gizmos}
 			if r.IsKeyReleased(.THREE) {
 				flags ~= {.lock_cursor}
@@ -105,7 +108,7 @@ main :: proc() {
 		{
 			r.ClearBackground(DARK)
 
-			if .smal_res in flags {
+			if .small_res in flags {
 				r.BeginTextureMode(render_target)
 				{
 					render_3d_scene()
