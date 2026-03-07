@@ -5,16 +5,21 @@ import "core:fmt"
 import r "vendor:raylib"
 
 Flags :: enum {
-	smal_res,
+	small_res,
 	show_gizmos,
 	lock_cursor,
 	paused,
+	camera_debug,
+	camera_follow,
 }
 
 Game_State :: struct {
 	cur_level: string,
 	levels:    map[string]Level,
-	actor:     Actor,
+}
+
+Actors_Names :: enum {
+	mona,
 }
 
 DT :: 1.0 / 60.0 // 16 ms, 0.016 s
@@ -26,18 +31,32 @@ input: Input_State
 font: r.Font
 game_state: Game_State
 main_actor: Actor
-
+actors: [Actors_Names]Actor // all actors including main actor
 accumulated_time: f32
+fxaa_intensity: f32 = 0.3
 
+render_target: r.RenderTexture2D
+fxaa_shader: r.Shader
+fxaa_intensity_loc : i32
 
 main :: proc() {
-	flags = {.lock_cursor}
+	flags = {.lock_cursor, .camera_debug, .small_res}
 
 	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_RESIZABLE})
 
 	r.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "gewuln")
 	r.SetTargetFPS(60)
 	r.DisableCursor()
+
+	fxaa_shader = r.LoadShader(nil, "assets/shaders/fxaa.fs")
+	defer r.UnloadShader(fxaa_shader)
+
+	fxaa_resolution_loc := r.GetShaderLocation(fxaa_shader, "resolution")
+	resolution := [2]f32{f32(RENDER_WIDTH), f32(RENDER_HEIGHT)}
+	r.SetShaderValue(fxaa_shader, fxaa_resolution_loc, &resolution, .VEC2)
+
+	fxaa_intensity_loc = r.GetShaderLocation(fxaa_shader, "intensity")
+	r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
 
 	err1: toml.Error
 	game_config, err1 = toml.parse_data(game_config_data)
@@ -54,61 +73,84 @@ main :: proc() {
 	actor_update_pos(&main_actor, cur_level().actor.pos)
 	actor_update_yaw(&main_actor, cur_level().actor.yaw)
 
-	render_target := r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
+	render_target = r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
+	// r.SetTextureFilter(render_target.texture, .BILINEAR)
 	defer r.UnloadRenderTexture(render_target)
 
 
 	for !r.WindowShouldClose() {
+		update()
+		draw()
 
-		//fixed timestep (the "accumulator" pattern)
-		max_dt :: 0.25
-		dt := r.Clamp(r.GetFrameTime(), 0, max_dt)
-		accumulated_time += dt
+		free_all(context.temp_allocator)
+	}
 
-		for accumulated_time >= DT {
+	r.CloseWindow()
+}
 
-			if .paused in flags do break
+update :: proc() {
+	//fixed timestep (the "accumulator" pattern)
+	max_dt :: 0.25
+	dt := r.Clamp(r.GetFrameTime(), 0, max_dt)
+	accumulated_time += dt
 
-			input = get_player_input()
+	for accumulated_time >= DT {
 
-			//input
-			if r.IsKeyReleased(.ONE) do flags ~= {.smal_res}
-			if r.IsKeyReleased(.TWO) do flags ~= {.show_gizmos}
-			if r.IsKeyReleased(.THREE) {
-				flags ~= {.lock_cursor}
-				if .lock_cursor in flags {r.DisableCursor()} else {r.EnableCursor()}
-			}
+		if .paused in flags do break
 
+		input = get_player_input()
 
-			switch main_actor.state {
-			case .IDLE:
-				handle_idle(DT)
-			case .WALK:
-				handle_walk(DT)
-			case .INTERACT:
-				handle_interact()
-			}
-
-			//update
-			actor_anim_update(&main_actor)
-			update_cam(DT)
-
-			accumulated_time -= DT
-
+		//input
+		if r.IsKeyReleased(.ONE) do flags ~= {.small_res}
+		if r.IsKeyReleased(.TWO) do flags ~= {.show_gizmos}
+		if r.IsKeyReleased(.THREE) {
+			flags ~= {.lock_cursor}
+			if .lock_cursor in flags {r.DisableCursor()} else {r.EnableCursor()}
+		}
+		if r.IsKeyDown(.J) {
+			fxaa_intensity = r.Clamp(fxaa_intensity + 0.1, 0.0, 1.0)
+			r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
+			fmt.println("fxaa_intensity: ", fxaa_intensity)
+		}
+		if r.IsKeyDown(.K) {
+			fxaa_intensity = r.Clamp(fxaa_intensity - 0.1, 0.0, 1.0)
+			r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
+			fmt.println("fxaa_intensity: ", fxaa_intensity)
 		}
 
 
-		r.BeginDrawing()
-		{
-			r.ClearBackground(DARK)
+		switch main_actor.state {
+		case .IDLE:
+			handle_idle(DT)
+		case .WALK:
+			handle_walk(DT)
+		case .INTERACT:
+			handle_interact()
+		}
 
-			if .smal_res in flags {
-				r.BeginTextureMode(render_target)
-				{
-					render_3d_scene()
-				}
-				r.EndTextureMode()
+		//update
+		actor_anim_update(&main_actor)
+		update_cam(DT)
 
+		accumulated_time -= DT
+
+	}
+}
+
+draw :: proc() {
+	r.BeginDrawing()
+	{
+		r.ClearBackground(DARK)
+
+		if .small_res in flags {
+			r.BeginTextureMode(render_target)
+			{
+				render_3d_scene()
+			}
+			r.EndTextureMode()
+
+			r.BeginShaderMode(fxaa_shader)
+			{
 				r.DrawTexturePro(
 					texture = render_target.texture,
 					source = r.Rectangle{0, 0, RENDER_WIDTH, -RENDER_HEIGHT},
@@ -117,18 +159,15 @@ main :: proc() {
 					rotation = 0,
 					tint = r.WHITE,
 				)
-			} else {
-				render_3d_scene()
 			}
-
-			draw_fps()
+			r.EndShaderMode()
+		} else {
+			render_3d_scene()
 		}
-		r.EndDrawing()
 
-		free_all(context.temp_allocator)
+		draw_fps()
 	}
-
-	r.CloseWindow()
+	r.EndDrawing()
 }
 
 render_3d_scene :: proc() {

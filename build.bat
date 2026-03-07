@@ -11,7 +11,7 @@ odin build . -out:build/gewuln.exe -debug && (
 	xcopy "assets" "build\assets" /S /D /Y /I > nul && (
 		call "build/gewuln.exe"
 	) || (
-		echo !!failed to copy
+		echo !!failed to copy assets to build\assets
 		pause
 	)
 )

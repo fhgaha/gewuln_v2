@@ -230,12 +230,15 @@ resolve_slide :: proc(desired: vec3, bb: r.BoundingBox, area: []tri3) -> (result
 handle_interact :: proc() {
 	play_anim(&main_actor.animator, .INTERACT)
 
-	//get the interactable
-	interact()
+	animation_ended := last_frame_reached(&main_actor.animator)
+
+	if animation_ended {
+		interact()
+	}
 
 	//state conditions	
-	walk_cond := last_frame_reached(&main_actor.animator) && input.move_dir != 0
-	idle_cond := last_frame_reached(&main_actor.animator)
+	walk_cond := animation_ended && input.move_dir != 0
+	idle_cond := animation_ended
 	switch {
 	case walk_cond:
 		main_actor.state = .WALK
