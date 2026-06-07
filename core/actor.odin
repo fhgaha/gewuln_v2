@@ -136,10 +136,12 @@ handle_idle :: proc(dt: f32) {
 
 	// state transitions	
 	walk_cond := input.move_dir != 0
-	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(
+
+	interact_trg, interact_tgr_found := get_interactable_colliding_actor(
 		cur_level().interactables[:],
 		main_actor,
 	)
+	
 	interact_cond := input.wants_interact && interact_tgr_found
 	switch {
 	case walk_cond:
@@ -164,13 +166,13 @@ handle_walk :: proc(dt: f32) {
 
 
 	// state transitions
-	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(
+	interact_trg, interact_trg_found := get_interactable_colliding_actor(
 		cur_level().interactables[:],
 		main_actor,
 	)
-	cur_level().intersected_intrs = interact_tgr
+	cur_level().intersected_intractables = interact_trg
 
-	interact_cond := interact_tgr_found && input.wants_interact
+	interact_cond := interact_trg_found && input.wants_interact
 	idle_cond := input.move_dir == 0
 	switch {
 	case interact_cond:
@@ -263,8 +265,19 @@ get_interactable_colliding_actor :: proc(
 			append(&colliding, intr)
 		}
 	}
+	
+	print_intercactables_colliding_with_actor: bool = true
+	if print_intercactables_colliding_with_actor {
+		names_slice := make([]string, len(colliding)); defer delete(names_slice)
+		for collider, idx in colliding {
+			names_slice[idx] = collider.name
+		}
 
+		fmt.println("interactables colliding actor: ", names_slice)
+	}
+	
 	if len(colliding) == 0 do return
+	
 
 	found = true
 	return

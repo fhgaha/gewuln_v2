@@ -18,7 +18,7 @@ Level :: struct {
 		pos: vec3,
 		yaw: f32,
 	},
-	intersected_intrs: [dynamic]Interactable, //currently colliding with main actor interactables
+	intersected_intractables: [dynamic]Interactable, //currently colliding with main actor interactables
 }
 
 create_levels :: proc(
