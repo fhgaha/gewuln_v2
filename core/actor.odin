@@ -141,7 +141,7 @@ handle_idle :: proc(dt: f32) {
 		cur_level().interactables[:],
 		main_actor,
 	)
-	
+
 	interact_cond := input.wants_interact && interact_tgr_found
 	switch {
 	case walk_cond:
@@ -265,19 +265,19 @@ get_interactable_colliding_actor :: proc(
 			append(&colliding, intr)
 		}
 	}
-	
-	print_intercactables_colliding_with_actor: bool = true
-	if print_intercactables_colliding_with_actor {
+
+	if false do print_intercactables_colliding_with_actor(colliding)
+
+	print_intercactables_colliding_with_actor :: proc(colliding: [dynamic]Interactable) {
 		names_slice := make([]string, len(colliding)); defer delete(names_slice)
 		for collider, idx in colliding {
 			names_slice[idx] = collider.name
 		}
-
 		fmt.println("interactables colliding actor: ", names_slice)
 	}
-	
+
 	if len(colliding) == 0 do return
-	
+
 
 	found = true
 	return
