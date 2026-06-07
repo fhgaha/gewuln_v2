@@ -34,7 +34,7 @@ Interactables_Naming_Table :: [?]struct {
 
 
 interact :: proc() {
-	for intr in cur_level().intersected_intrs {
+	for intr in cur_level().intersected_interactables {
 		switch d in intr.data {
 		case Door_Data:
 			assert(d.connected_level_name != "")
@@ -61,4 +61,9 @@ draw_interactables :: proc(color: r.Color = r.RED) {
 	for intr in cur_level().interactables {
 		r.DrawModelWires(intr.model, pos_from_transform(intr.model.transform), 1, color)
 	}
+}
+
+get_interactable_center :: proc(interactable: ^Interactable) -> vec3 {
+	bb := r.GetModelBoundingBox(interactable.model)
+	return (bb.min + bb.max) * 0.5
 }

@@ -2,6 +2,7 @@ first_level_name = "test_room"
 # first_level_name = "another_test_room"
 
 [main_actor]
+name     = "mona"
 model    = "assets/models/mona_sax/export/glb/mona.glb"
 collider = "assets/models/mona_sax/export/glb/collider.glb"
 
@@ -17,14 +18,14 @@ walk_area_glb = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
 
 	[[levels.interactables]]
 	type = "door"
-	name = "interactable_h_half"
+	name = "interactable_h_half_door"
 	glb  = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"
 		[levels.interactables.data]
 		connected_lvl_name = "another_test_room"
 
 	[[levels.interactables]]
 	type = "dialogue"
-	name = "interactable_h_2"
+	name = "interactable_h_2_dialogue"
 	glb  = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"
 
 		[levels.interactables.data]
@@ -45,8 +46,8 @@ room_glb      = "assets/models/another_test_room/export/glb/room.glb"
 walk_area_glb = "assets/models/another_test_room/export/glb/walk_area.glb"
 
 	[levels.camera]
-	pos    = [5.0, 3.0, 10.0]
-	target = [0.0, 0.0, 0.0]
+	pos    = [5.0, 3.0, 10.0] # not used
+	target = [0.0, 0.0, 0.0]  # not used
 
 	[[levels.interactables]]
 	#TODO mock here

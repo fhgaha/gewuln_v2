@@ -41,6 +41,22 @@ vec3_lerp :: proc(a, b: vec3, t: f32) -> vec3 {
 	return a + (b - a) * t
 }
 
+vec3_angle :: proc(v1: vec3, v2: vec3) -> f32 {
+	// 1. Calculate the dot product
+	dot := r.Vector3DotProduct(v1, v2)
+
+	// 2. Calculate the magnitudes (lengths)
+	len1 := r.Vector3Length(v1)
+	len2 := r.Vector3Length(v2)
+
+	// Prevent division by zero if a vector is empty
+	if len1 == 0 || len2 == 0 do return 0
+
+	cosTheta := math.clamp(dot / (len1 * len2), -1, 1)
+	// 4. Return the angle in radians
+	return math.acos_f32(cosTheta)
+}
+
 pos_from_transform :: proc(m: r.Matrix) -> vec3 {
 	return vec3{m[0, 3], m[1, 3], m[2, 3]}
 }
@@ -219,4 +235,29 @@ print :: proc(args: ..any) {
 must :: proc(val: $T, ok: bool, loc := #caller_location) -> T {
 	if !ok do panic("Value is not ok!", loc)
 	return val
+}
+
+DebugLine :: struct {
+	start, end: vec3,
+	color:      r.Color,
+}
+
+draw_debug_line :: proc(start, end: vec3, color: r.Color = r.RED) {
+	append(&debug_lines, DebugLine{start, end, color})
+}
+
+get_bone_transform :: proc(
+	model: ^r.Model,
+	bone_idx: int,
+	frame_poses: [^]r.Transform,
+) -> (
+	bool,
+	r.Transform,
+) {
+	for i in 0 ..< int(model.boneCount) {
+		if i == bone_idx {
+			return true, frame_poses[i]
+		}
+	}
+	return false, r.Transform{}
 }

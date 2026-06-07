@@ -8,6 +8,7 @@ import r "vendor:raylib"
 
 Actor :: struct {
 	initialised:           bool,
+	name:                  string,
 	pos:                   vec3,
 	yaw:                   f32, //in rads
 	speed, rot_speed:      f32,
@@ -16,6 +17,10 @@ Actor :: struct {
 	bounding_box:          r.BoundingBox,
 	state:                 Actor_State,
 	animator:              Animator,
+
+	//neck rotation
+	neck_bone_index:       i32,
+	neck_current_delta:    r.Quaternion,
 }
 
 Actor_State :: enum {
@@ -36,7 +41,26 @@ Input_State :: struct {
 	wants_interact: bool,
 }
 
-create_actor :: proc(actor_path, collider_path: cstring) -> (actor: Actor, ok: bool) {
+create_actor_from_toml :: proc(section: ^toml.Table) -> Actor {
+	actor_name := toml.get_string_panic(section, "main_actor", "name")
+	model_path := toml.get_string_panic(section, "main_actor", "model")
+	collider_path := toml.get_string_panic(section, "main_actor", "collider")
+	actor, ok := create_actor(
+		actor_name,
+		strings.clone_to_cstring(model_path),
+		strings.clone_to_cstring(collider_path),
+	)
+	assert(ok)
+	return actor
+}
+
+create_actor :: proc(
+	actor_name: string,
+	actor_path, collider_path: cstring,
+) -> (
+	actor: Actor,
+	ok: bool,
+) {
 	// Load resources
 	actor_model := r.LoadModel(actor_path)
 	if !r.IsModelValid(actor_model) {
@@ -68,7 +92,8 @@ create_actor :: proc(actor_path, collider_path: cstring) -> (actor: Actor, ok: b
 
 	actor = Actor {
 		initialised           = true,
-		pos                   = pos_from_transform(actor_model.transform),
+		name                  = actor_name,
+		pos                   = 0,
 		yaw                   = yaw_from_transform(actor_model.transform),
 		speed                 = 2,
 		rot_speed             = 4,
@@ -77,21 +102,11 @@ create_actor :: proc(actor_path, collider_path: cstring) -> (actor: Actor, ok: b
 		bounding_box          = bb,
 		state                 = .IDLE,
 		animator              = animator,
+		neck_bone_index       = -1,
+		neck_current_delta    = r.Quaternion(1),
 	}
 	ok = true
 	return
-}
-
-
-create_actor_from_toml :: proc(section: ^toml.Table) -> Actor {
-	model_path := toml.get_string_panic(section, "main_actor", "model")
-	collider_path := toml.get_string_panic(section, "main_actor", "collider")
-	actor, ok := create_actor(
-		strings.clone_to_cstring(model_path),
-		strings.clone_to_cstring(collider_path),
-	)
-	assert(ok)
-	return actor
 }
 
 actor_pos :: proc(actor: ^Actor) -> vec3 {
@@ -109,12 +124,18 @@ actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 }
 
 actor_update_pos :: proc(actor: ^Actor, delta_pos: vec3) {
+	old_pos := actor.pos
 	actor.pos += delta_pos
 	actor.bounding_box.min += delta_pos
 	actor.bounding_box.max += delta_pos
+	
+	if actor.pos != old_pos && .print_debug_info in flags {
+		fmt.println(actor.name, ": pos =", actor.pos)
+	}
 }
 
 actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
+	old_yaw := actor.yaw
 	new_yaw := clamp_angle(yaw)
 	actor.yaw = new_yaw
 
@@ -124,6 +145,10 @@ actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
 	// actor.model.transform = transl * rot
 	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
 	actor.model.transform = r.MatrixRotateY(new_yaw)
+
+	if new_yaw != old_yaw && .print_debug_info in flags {
+		fmt.println(actor.name, ": yaw =", new_yaw * r.RAD2DEG)
+	}
 }
 
 //actor states
@@ -136,18 +161,20 @@ handle_idle :: proc(dt: f32) {
 
 	// state transitions	
 	walk_cond := input.move_dir != 0
-	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(
+
+	interact_trg, interact_tgr_found := get_interactable_colliding_actor(
 		cur_level().interactables[:],
-		main_actor,
+		&main_actor,
 	)
+
 	interact_cond := input.wants_interact && interact_tgr_found
 	switch {
 	case walk_cond:
 		main_actor.state = .WALK
-		fmt.println("handle_walk")
+		fmt.println(main_actor.name, ": handle_walk")
 	case interact_cond:
 		main_actor.state = .INTERACT
-		fmt.println("handle_interact")
+		fmt.println(main_actor.name, ": handle_interact")
 	}
 }
 
@@ -164,21 +191,20 @@ handle_walk :: proc(dt: f32) {
 
 
 	// state transitions
-	interact_tgr, interact_tgr_found := get_interactable_colliding_actor(
+	interact_trg, interact_trg_found := get_interactable_colliding_actor(
 		cur_level().interactables[:],
-		main_actor,
+		&main_actor,
 	)
-	cur_level().intersected_intrs = interact_tgr
 
-	interact_cond := interact_tgr_found && input.wants_interact
+	interact_cond := interact_trg_found && input.wants_interact
 	idle_cond := input.move_dir == 0
 	switch {
 	case interact_cond:
 		main_actor.state = .INTERACT
-		fmt.println("handle_interact")
+		fmt.println(main_actor.name, ": handle_interact")
 	case idle_cond:
 		main_actor.state = .IDLE
-		fmt.println("handle_idle")
+		fmt.println(main_actor.name, ": handle_idle")
 	}
 }
 
@@ -242,17 +268,17 @@ handle_interact :: proc() {
 	switch {
 	case walk_cond:
 		main_actor.state = .WALK
-		fmt.println("handle_idle")
+		fmt.println(main_actor.name, ": handle_idle")
 	case idle_cond:
 		main_actor.state = .IDLE
-		fmt.println("handle_idle")
+		fmt.println(main_actor.name, ": handle_idle")
 	}
 }
 
 
 get_interactable_colliding_actor :: proc(
 	interactables: []Interactable,
-	actor: Actor,
+	actor: ^Actor,
 ) -> (
 	colliding: [dynamic]Interactable,
 	found: bool,
@@ -264,7 +290,21 @@ get_interactable_colliding_actor :: proc(
 		}
 	}
 
+	if false do print_intercactables_colliding_with_actor(colliding)
+
+	print_intercactables_colliding_with_actor :: proc(colliding: [dynamic]Interactable) {
+		names_slice := make([]string, len(colliding)); defer delete(names_slice)
+		for collider, idx in colliding {
+			names_slice[idx] = collider.name
+		}
+		fmt.println("interactables colliding actor: ", names_slice)
+	}
+
+	// save in level
+	cur_level().intersected_interactables = colliding
+
 	if len(colliding) == 0 do return
+
 
 	found = true
 	return

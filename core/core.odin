@@ -2,6 +2,7 @@ package core
 
 import "../packages/toml"
 import "core:fmt"
+import "core:strings"
 import r "vendor:raylib"
 
 Flags :: enum {
@@ -11,18 +12,18 @@ Flags :: enum {
 	paused,
 	camera_debug,
 	camera_follow,
+	print_debug_info,
 }
 
 Game_State :: struct {
-	cur_level: string,
-	levels:    map[string]Level,
+	cur_level_name: string,
+	levels:         map[string]Level,
 }
 
 Actors_Names :: enum {
 	mona,
 }
 
-DT :: 1.0 / 60.0 // 16 ms, 0.016 s
 game_config_data := #load("../config.toml")
 game_config: ^toml.Table
 
@@ -37,10 +38,12 @@ fxaa_intensity: f32 = 0.3
 
 render_target: r.RenderTexture2D
 fxaa_shader: r.Shader
-fxaa_intensity_loc : i32
+fxaa_intensity_loc: i32
+
+debug_lines: [dynamic]DebugLine
 
 main :: proc() {
-	flags = {.lock_cursor, .camera_debug, .small_res}
+	flags = {.lock_cursor, .camera_debug, .show_gizmos, .print_debug_info}
 
 	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_RESIZABLE})
 
@@ -67,15 +70,32 @@ main :: proc() {
 	r.SetTextureFilter(font.texture, .BILINEAR)
 	defer r.UnloadFont(font)
 
+
 	main_actor = create_actor_from_toml(game_config)
-	game_state.levels, game_state.cur_level = create_levels(game_config)
+	game_state.levels, game_state.cur_level_name = create_levels(game_config)
 
 	actor_update_pos(&main_actor, cur_level().actor.pos)
 	actor_update_yaw(&main_actor, cur_level().actor.yaw)
 
+
+	// testing
+	actor_update_pos(&main_actor, delta_pos = vec3{-4, 0, 4})
+
+	_, __ := get_interactable_colliding_actor(cur_level().interactables[:], &main_actor)
+
 	render_target = r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	// r.SetTextureFilter(render_target.texture, .BILINEAR)
 	defer r.UnloadRenderTexture(render_target)
+
+
+	// searching neck bone index
+	for i in 0 ..< main_actor.model.boneCount {
+		bone_name := string(cast(cstring)&main_actor.model.bones[i].name[0])
+		if strings.contains(strings.to_lower(bone_name), "neck") {
+			fmt.printf("Found neck bone at index: %d\n", i)
+			main_actor.neck_bone_index = i
+		}
+	}
 
 
 	for !r.WindowShouldClose() {
@@ -189,7 +209,10 @@ render_3d_scene :: proc() {
 
 			draw_walking_area()
 			draw_gizmo()
+			draw_debug_lines()
 		}
+
+
 	}
 	r.EndMode3D()
 }
@@ -219,4 +242,11 @@ draw_walking_area :: proc() {
 		r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
 		r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)
 	}
+}
+
+draw_debug_lines :: proc() {
+	for l in debug_lines {
+		r.DrawLine3D(l.start, l.end, l.color)
+	}
+	clear(&debug_lines)
 }

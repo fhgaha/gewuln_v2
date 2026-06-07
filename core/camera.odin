@@ -91,3 +91,4 @@ update_cam_follow :: proc(dt: f32, cam_cfg: Third_Person_Cam = default_third_per
 	// Target is player's position (slightly above ground)
 	cam.target = vec3{player_pos.x, player_pos.y + 1.0, player_pos.z}
 }
+
