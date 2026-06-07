@@ -173,7 +173,7 @@ load_custom_props_from_glb :: proc(glb_path: string) -> Custom_Properties {
 			break
 		}
 	}
-
+	
 	return Custom_Properties{actor_pos = transl, actor_yaw = yaw}
 }
 

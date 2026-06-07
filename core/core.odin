@@ -2,6 +2,7 @@ package core
 
 import "../packages/toml"
 import "core:fmt"
+import "core:strings"
 import r "vendor:raylib"
 
 Flags :: enum {
@@ -37,7 +38,7 @@ fxaa_intensity: f32 = 0.3
 
 render_target: r.RenderTexture2D
 fxaa_shader: r.Shader
-fxaa_intensity_loc : i32
+fxaa_intensity_loc: i32
 
 main :: proc() {
 	flags = {.lock_cursor, .camera_debug, .small_res}
@@ -76,6 +77,16 @@ main :: proc() {
 	render_target = r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	// r.SetTextureFilter(render_target.texture, .BILINEAR)
 	defer r.UnloadRenderTexture(render_target)
+
+
+	// searching neck bone index
+	for i in 0 ..< main_actor.model.boneCount {
+		bone_name := string(cast(cstring)&main_actor.model.bones[i].name[0])
+		if strings.contains(strings.to_lower(bone_name), "neck") {
+			fmt.printf("Found neck bone at index: %d\n", i)
+			main_actor.neck_bone_index = i
+		}
+	}
 
 
 	for !r.WindowShouldClose() {

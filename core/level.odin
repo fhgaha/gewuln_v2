@@ -8,13 +8,13 @@ import r "vendor:raylib"
 
 
 Level :: struct {
-	name:              string,
-	cam:               r.Camera3D,
-	room:              r.Model,
-	walk_area:         r.Model,
-	walk_area_tris:    [dynamic]tri3,
-	interactables:     [dynamic]Interactable,
-	actor:             struct {
+	name:                     string,
+	cam:                      r.Camera3D,
+	room:                     r.Model,
+	walk_area:                r.Model,
+	walk_area_tris:           [dynamic]tri3,
+	interactables:            [dynamic]Interactable,
+	actor:                    struct {
 		pos: vec3,
 		yaw: f32,
 	},
@@ -153,7 +153,7 @@ destroy_level :: proc() {
 }
 
 load_level :: proc(lvl: ^Level) {
-	
+
 }
 
 unload_level :: proc(lvl: ^Level) {

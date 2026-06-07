@@ -1,5 +1,6 @@
 package core
 
+import "core:math"
 import r "vendor:raylib"
 
 //animations
@@ -35,10 +36,62 @@ play_anim :: proc(animator: ^Animator, state: Actor_State) {
 	animator.anim_cur_frame = 0
 }
 
+
 actor_anim_update :: proc(actor: ^Actor) {
 	animator: ^Animator = &actor.animator
-	anim: r.ModelAnimation = animator.anims[animator.anim_idx]
+	anim := &animator.anims[animator.anim_idx]
+
+	// 1. Advance the frame counter EXACTLY ONCE per update step
 	animator.anim_cur_frame = (animator.anim_cur_frame + 1) % anim.frameCount
-	r.UpdateModelAnimation(actor.model, anim, animator.anim_cur_frame)
+
+	// 2. Manipulate the targeted skeleton tracks locally using our active frame index
+	// No target position needed anymore!
+	rotate_neck(actor, animator.anim_cur_frame)
+
+	// 3. Process the fully adjusted animation frame matrices down to the GPU
+	r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
 }
 
+rotate_neck :: proc(actor: ^Actor, frame_idx: i32) {
+	if actor.neck_bone_index == -1 do return
+
+	animator := &actor.animator
+	anim := &animator.anims[animator.anim_idx]
+	neck_idx := int(actor.neck_bone_index)
+
+	// 1. Calculate a dynamic rotation angle spinning cleanly over time
+	angle := f32(r.GetTime() * 2.0)
+
+	// 2. Generate a clean rotation quaternion around the Z axis (Roll)
+	custom_rotation := r.QuaternionFromEuler(0, 0, angle)
+
+	// 3. Loop through the skeleton to apply the rotation to the neck and all child bones
+	for i in 0 ..< int(actor.model.boneCount) {
+		if i == neck_idx {
+			original_rot := anim^.framePoses[frame_idx][i].rotation
+			// Custom rotation on the LEFT acts as a smooth parent space offset
+			anim^.framePoses[frame_idx][i].rotation = custom_rotation * original_rot
+			
+		} else if is_child_of_neck(actor, i, neck_idx) {
+			original_rot := anim^.framePoses[frame_idx][i].rotation
+			// Custom rotation on the LEFT ensures children (head/eyes) turn with the neck
+			anim^.framePoses[frame_idx][i].rotation = custom_rotation * original_rot
+		}
+	}
+}
+
+
+
+
+
+
+// Keeping this as a clean structural nested proc context boundary utility
+is_child_of_neck :: proc(actor: ^Actor, bone_index: int, target_parent_index: int) -> bool {
+	current_parent := actor.model.bones[bone_index].parent
+
+	for current_parent != -1 {
+		if int(current_parent) == target_parent_index do return true
+		current_parent = actor.model.bones[current_parent].parent
+	}
+	return false
+}

@@ -16,6 +16,9 @@ Actor :: struct {
 	bounding_box:          r.BoundingBox,
 	state:                 Actor_State,
 	animator:              Animator,
+
+	//neck rotation
+	neck_bone_index:       i32,
 }
 
 Actor_State :: enum {
