@@ -62,3 +62,8 @@ draw_interactables :: proc(color: r.Color = r.RED) {
 		r.DrawModelWires(intr.model, pos_from_transform(intr.model.transform), 1, color)
 	}
 }
+
+get_interactable_center :: proc(interactable: ^Interactable) -> vec3 {
+	bb := r.GetModelBoundingBox(interactable.model)
+	return (bb.min + bb.max) * 0.5
+}

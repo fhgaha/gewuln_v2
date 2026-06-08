@@ -43,35 +43,98 @@ actor_anim_update :: proc(actor: ^Actor) {
 
 	// 1. Advance the frame counter EXACTLY ONCE per update step
 	animator.anim_cur_frame = (animator.anim_cur_frame + 1) % anim.frameCount
+	neck_idx := int(actor.neck_bone_index)
+	frame_idx := animator.anim_cur_frame
 
-	// 2. Manipulate the targeted skeleton tracks locally using our active frame index
-	// No target position needed anymore!
-	rotate_neck(actor, animator.anim_cur_frame)
 
-	// 3. Process the fully adjusted animation frame matrices down to the GPU
+	//cash neck and its children bone rotations
+	cashed_neck_frame_poses: [dynamic]r.Quaternion
+	defer delete(cashed_neck_frame_poses)
+	for i in 0 ..< int(actor.model.boneCount) {
+		if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
+			append(&cashed_neck_frame_poses, anim^.framePoses[frame_idx][i].rotation)
+		}
+	}
+
+	if len(cur_level().intersected_intractables) > 0 {
+		interactable_pos := get_interactable_center(&cur_level().intersected_intractables[0])
+		rotate_neck(actor, interactable_pos)
+	}
+
 	r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
+	
+	// restore cashed rotations
+	for i in 0 ..< int(actor.model.boneCount) {
+		if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
+			anim^.framePoses[frame_idx][i].rotation = cashed_neck_frame_poses[0]
+			remove_range(&cashed_neck_frame_poses, 0, 1)
+		}
+	}
 }
 
-rotate_neck :: proc(actor: ^Actor, frame_idx: i32) {
+// rotate_neck :: proc(actor: ^Actor, interactable_pos: vec3) {
+// 	if actor.neck_bone_index == -1 do return
+
+// 	animator := &actor.animator
+// 	anim := &animator.anims[animator.anim_idx]
+// 	neck_idx := int(actor.neck_bone_index)
+// 	frame_idx := animator.anim_cur_frame
+
+// 	// 1. Calculate a dynamic rotation angle spinning cleanly over time
+// 	// angle := f32(r.GetTime() * 2.0)
+
+
+// 	//TODO
+// 	angle := r.Vector3Angle(actor.pos, interactable_pos)
+
+// 	print(actor.pos, interactable_pos, angle * r.RAD2DEG)
+
+
+// 	// 2. Generate a clean rotation quaternion around the Z axis (Roll)
+// 	// custom_rotation := r.QuaternionFromEuler(0, angle, 0)
+// 	custom_rotation := r.QuaternionFromEuler(0, 45 * r.DEG2RAD, 0)
+// 	// 3. Loop through the skeleton to apply the rotation to the neck and all child bones
+// 	for i in 0 ..< int(actor.model.boneCount) {
+// 		if i == neck_idx {
+// 			original_rot := anim^.framePoses[frame_idx][i].rotation
+// 			// Custom rotation on the LEFT acts as a smooth parent space offset
+// 			anim^.framePoses[frame_idx][i].rotation = custom_rotation * original_rot
+
+// 		} else if is_child_of_neck(actor, i, neck_idx) {
+// 			original_rot := anim^.framePoses[frame_idx][i].rotation
+// 			// Custom rotation on the LEFT ensures children (head/eyes) turn with the neck
+// 			anim^.framePoses[frame_idx][i].rotation = custom_rotation * original_rot
+// 		}
+// 	}
+// }
+
+
+rotate_neck :: proc(actor: ^Actor, interactable_pos: vec3) {
 	if actor.neck_bone_index == -1 do return
 
 	animator := &actor.animator
 	anim := &animator.anims[animator.anim_idx]
 	neck_idx := int(actor.neck_bone_index)
+	frame_idx := animator.anim_cur_frame
+
+
+	look_mat := r.MatrixInvert(r.MatrixLookAt(actor.pos + 1.7, interactable_pos, UP))
+
 
 	// 1. Calculate a dynamic rotation angle spinning cleanly over time
-	angle := f32(r.GetTime() * 2.0)
+	// angle := f32(r.GetTime() * 2.0)
+	angle: f32 = 45 * r.DEG2RAD
 
 	// 2. Generate a clean rotation quaternion around the Z axis (Roll)
-	custom_rotation := r.QuaternionFromEuler(0, 0, angle)
-
+	custom_rotation := r.QuaternionFromEuler(0, -angle, 0)
+	// custom_rotation := r.QuaternionFromEuler(0, 45 * r.DEG2RAD, 0)
 	// 3. Loop through the skeleton to apply the rotation to the neck and all child bones
 	for i in 0 ..< int(actor.model.boneCount) {
 		if i == neck_idx {
 			original_rot := anim^.framePoses[frame_idx][i].rotation
 			// Custom rotation on the LEFT acts as a smooth parent space offset
 			anim^.framePoses[frame_idx][i].rotation = custom_rotation * original_rot
-			
+
 		} else if is_child_of_neck(actor, i, neck_idx) {
 			original_rot := anim^.framePoses[frame_idx][i].rotation
 			// Custom rotation on the LEFT ensures children (head/eyes) turn with the neck
@@ -79,10 +142,6 @@ rotate_neck :: proc(actor: ^Actor, frame_idx: i32) {
 		}
 	}
 }
-
-
-
-
 
 
 // Keeping this as a clean structural nested proc context boundary utility
