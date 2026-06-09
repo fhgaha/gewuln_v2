@@ -43,7 +43,7 @@ fxaa_intensity_loc: i32
 debug_lines: [dynamic]DebugLine
 
 main :: proc() {
-	flags = {.lock_cursor, .camera_debug, .small_res}
+	flags = {.lock_cursor, .camera_debug, .show_gizmos}
 
 	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_RESIZABLE})
 
@@ -74,8 +74,10 @@ main :: proc() {
 	game_state.levels, game_state.cur_level = create_levels(game_config)
 
 	actor_update_pos(&main_actor, cur_level().actor.pos)
-	print(&main_actor.pos, cur_level().actor.pos)
 	actor_update_yaw(&main_actor, cur_level().actor.yaw)
+
+	// testing
+	actor_update_pos(&main_actor, vec3{-4, 0, 4})
 
 	render_target = r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	// r.SetTextureFilter(render_target.texture, .BILINEAR)

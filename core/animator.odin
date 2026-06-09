@@ -1,6 +1,7 @@
 package core
 
 import "core:math"
+import "core:math/linalg"
 import r "vendor:raylib"
 
 //animations
@@ -119,13 +120,28 @@ rotate_neck :: proc(actor: ^Actor, interactable_pos: vec3) {
     frame_idx := animator.anim_cur_frame
     neck_pos := vec3{actor.pos.x, 1.7, actor.pos.z}
     draw_debug_line(neck_pos, interactable_pos, r.BEIGE)
-    target_dir := r.Vector3Normalize(interactable_pos - neck_pos)
-    actor_fwd := vec3{math.sin(actor.yaw), 0, math.cos(actor.yaw)}
-    target_dir_xz := r.Vector3Normalize(vec3{target_dir.x, 0, target_dir.z})
-    dot := r.Vector3DotProduct(actor_fwd, target_dir_xz)
-    cross := r.Vector3CrossProduct(actor_fwd, target_dir_xz)
-    yaw_offset := math.atan2(cross.y, dot)
-    neck_rotation := r.QuaternionFromAxisAngle(UP, yaw_offset)
+    // World-space direction from neck to target
+    world_dir := r.Vector3Normalize(interactable_pos - neck_pos)
+    // Transform world direction -> model space
+    // Model transform is MatrixRotateY(yaw), so inverse is MatrixRotateY(-yaw)
+    c := math.cos(actor.yaw)
+    s := math.sin(actor.yaw)
+    local_dir := vec3{
+        world_dir.x * c - world_dir.z * s,
+        world_dir.y,
+        world_dir.x * s + world_dir.z * c,
+    }
+    local_dir = r.Vector3Normalize(local_dir)
+    // Shortest-path rotation from model +Z to target direction
+    FWD :: vec3{0, 0, 1}
+    cross := r.Vector3CrossProduct(FWD, local_dir)
+    len := r.Vector3Length(cross)
+    neck_rotation: r.Quaternion
+    if len > 0.0001 {
+        cross /= len
+        dot := math.clamp(r.Vector3DotProduct(FWD, local_dir), -1, 1)
+        neck_rotation = r.QuaternionFromAxisAngle(cross, math.acos(dot))
+    }
     for i in 0 ..< int(actor.model.boneCount) {
         if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
             original_rot := anim^.framePoses[frame_idx][i].rotation
