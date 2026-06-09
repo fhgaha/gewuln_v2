@@ -38,39 +38,35 @@ play_anim :: proc(animator: ^Animator, state: Actor_State) {
 
 
 actor_anim_update :: proc(actor: ^Actor) {
-	animator: ^Animator = &actor.animator
+	animator := &actor.animator
 	anim := &animator.anims[animator.anim_idx]
-
-	// 1. Advance the frame counter EXACTLY ONCE per update step
 	animator.anim_cur_frame = (animator.anim_cur_frame + 1) % anim.frameCount
-	neck_idx := int(actor.neck_bone_index)
 	frame_idx := animator.anim_cur_frame
-
-
-	//cash neck and its children bone rotations
-	cashed_neck_frame_poses: [dynamic]r.Quaternion
-	defer delete(cashed_neck_frame_poses)
-	for i in 0 ..< int(actor.model.boneCount) {
-		if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
-			append(&cashed_neck_frame_poses, anim^.framePoses[frame_idx][i].rotation)
-		}
-	}
+	neck_idx := int(actor.neck_bone_index)
 
 	if len(cur_level().intersected_intractables) > 0 {
+		// cash neck and its children bone rotations
+		cached: map[int]r.Quaternion
+		defer delete(cached)
+		for i in 0 ..< int(actor.model.boneCount) {
+			if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
+				cached[i] = anim^.framePoses[frame_idx][i].rotation
+			}
+		}
+
 		interactable_pos := get_interactable_center(&cur_level().intersected_intractables[0])
 		rotate_neck(actor, interactable_pos)
-	}
+		r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
 
-	r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
-	
-	// restore cashed rotations
-	for i in 0 ..< int(actor.model.boneCount) {
-		if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
-			anim^.framePoses[frame_idx][i].rotation = cashed_neck_frame_poses[0]
-			remove_range(&cashed_neck_frame_poses, 0, 1)
+		// restore cashed neck and children bone rotations
+		for i, rot in cached {
+			anim^.framePoses[frame_idx][i].rotation = rot
 		}
+	} else {
+		r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
 	}
 }
+
 
 // rotate_neck :: proc(actor: ^Actor, interactable_pos: vec3) {
 // 	if actor.neck_bone_index == -1 do return
@@ -80,19 +76,26 @@ actor_anim_update :: proc(actor: ^Actor) {
 // 	neck_idx := int(actor.neck_bone_index)
 // 	frame_idx := animator.anim_cur_frame
 
-// 	// 1. Calculate a dynamic rotation angle spinning cleanly over time
-// 	// angle := f32(r.GetTime() * 2.0)
+// 	neck_pos := vec3{actor.pos.x, 1.7, actor.pos.z}
 
+// 	look_mat :=
+// 		r.MatrixInvert(r.MatrixLookAt(neck_pos, interactable_pos, UP)) *
+// 		r.MatrixRotateY(r.PI - actor.yaw)
+// 	draw_debug_line(neck_pos, interactable_pos, r.BEIGE)
 
-// 	//TODO
-// 	angle := r.Vector3Angle(actor.pos, interactable_pos)
-
-// 	print(actor.pos, interactable_pos, angle * r.RAD2DEG)
-
+// 	/*
+// 	A 4x4 transform matrix in raylib (column-major) looks like:
+// 	[ Rx  Ux  Fx  Tx ]    R = right    (X basis)
+// 	[ Ry  Uy  Fy  Ty ]    U = up       (Y basis)
+// 	[ Rz  Uz  Fz  Tz ]    F = forward  (Z basis)
+// 	[  0   0   0   1 ]    T = translation
+// 	- Column 3 (Tx, Ty, Tz): translation/position
+// 	- Columns 0-2 (R, U, F): the 3x3 rotation/scale basis. For pure rotation, each column is unit length and orthogonal. For scale, length > 1.
+// 	- Bottom row is always [0, 0, 0, 1] for affine transforms.
+// 	*/
 
 // 	// 2. Generate a clean rotation quaternion around the Z axis (Roll)
-// 	// custom_rotation := r.QuaternionFromEuler(0, angle, 0)
-// 	custom_rotation := r.QuaternionFromEuler(0, 45 * r.DEG2RAD, 0)
+// 	custom_rotation := r.QuaternionFromMatrix(look_mat)
 // 	// 3. Loop through the skeleton to apply the rotation to the neck and all child bones
 // 	for i in 0 ..< int(actor.model.boneCount) {
 // 		if i == neck_idx {
@@ -108,39 +111,27 @@ actor_anim_update :: proc(actor: ^Actor) {
 // 	}
 // }
 
-
 rotate_neck :: proc(actor: ^Actor, interactable_pos: vec3) {
-	if actor.neck_bone_index == -1 do return
-
-	animator := &actor.animator
-	anim := &animator.anims[animator.anim_idx]
-	neck_idx := int(actor.neck_bone_index)
-	frame_idx := animator.anim_cur_frame
-
-
-	look_mat := r.MatrixInvert(r.MatrixLookAt(actor.pos + 1.7, interactable_pos, UP))
-
-
-	// 1. Calculate a dynamic rotation angle spinning cleanly over time
-	// angle := f32(r.GetTime() * 2.0)
-	angle: f32 = 45 * r.DEG2RAD
-
-	// 2. Generate a clean rotation quaternion around the Z axis (Roll)
-	custom_rotation := r.QuaternionFromEuler(0, -angle, 0)
-	// custom_rotation := r.QuaternionFromEuler(0, 45 * r.DEG2RAD, 0)
-	// 3. Loop through the skeleton to apply the rotation to the neck and all child bones
-	for i in 0 ..< int(actor.model.boneCount) {
-		if i == neck_idx {
-			original_rot := anim^.framePoses[frame_idx][i].rotation
-			// Custom rotation on the LEFT acts as a smooth parent space offset
-			anim^.framePoses[frame_idx][i].rotation = custom_rotation * original_rot
-
-		} else if is_child_of_neck(actor, i, neck_idx) {
-			original_rot := anim^.framePoses[frame_idx][i].rotation
-			// Custom rotation on the LEFT ensures children (head/eyes) turn with the neck
-			anim^.framePoses[frame_idx][i].rotation = custom_rotation * original_rot
-		}
-	}
+    if actor.neck_bone_index == -1 do return
+    animator := &actor.animator
+    anim := &animator.anims[animator.anim_idx]
+    neck_idx := int(actor.neck_bone_index)
+    frame_idx := animator.anim_cur_frame
+    neck_pos := vec3{actor.pos.x, 1.7, actor.pos.z}
+    draw_debug_line(neck_pos, interactable_pos, r.BEIGE)
+    target_dir := r.Vector3Normalize(interactable_pos - neck_pos)
+    actor_fwd := vec3{math.sin(actor.yaw), 0, math.cos(actor.yaw)}
+    target_dir_xz := r.Vector3Normalize(vec3{target_dir.x, 0, target_dir.z})
+    dot := r.Vector3DotProduct(actor_fwd, target_dir_xz)
+    cross := r.Vector3CrossProduct(actor_fwd, target_dir_xz)
+    yaw_offset := math.atan2(cross.y, dot)
+    neck_rotation := r.QuaternionFromAxisAngle(UP, yaw_offset)
+    for i in 0 ..< int(actor.model.boneCount) {
+        if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
+            original_rot := anim^.framePoses[frame_idx][i].rotation
+            anim^.framePoses[frame_idx][i].rotation = neck_rotation * original_rot
+        }
+    }
 }
 
 

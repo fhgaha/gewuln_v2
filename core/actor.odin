@@ -71,7 +71,8 @@ create_actor :: proc(actor_path, collider_path: cstring) -> (actor: Actor, ok: b
 
 	actor = Actor {
 		initialised           = true,
-		pos                   = pos_from_transform(actor_model.transform),
+		// pos                   = pos_from_transform(actor_model.transform),
+		pos                   = 0,
 		yaw                   = yaw_from_transform(actor_model.transform),
 		speed                 = 2,
 		rot_speed             = 4,

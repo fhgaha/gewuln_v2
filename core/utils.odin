@@ -220,3 +220,9 @@ must :: proc(val: $T, ok: bool, loc := #caller_location) -> T {
 	if !ok do panic("Value is not ok!", loc)
 	return val
 }
+
+DebugLine :: struct { start, end: vec3, color: r.Color }
+
+draw_debug_line :: proc(start, end: vec3, color: r.Color = r.RED) {
+    append(&debug_lines, DebugLine{start, end, color})
+}

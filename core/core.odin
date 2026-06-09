@@ -40,6 +40,8 @@ render_target: r.RenderTexture2D
 fxaa_shader: r.Shader
 fxaa_intensity_loc: i32
 
+debug_lines: [dynamic]DebugLine
+
 main :: proc() {
 	flags = {.lock_cursor, .camera_debug, .small_res}
 
@@ -72,6 +74,7 @@ main :: proc() {
 	game_state.levels, game_state.cur_level = create_levels(game_config)
 
 	actor_update_pos(&main_actor, cur_level().actor.pos)
+	print(&main_actor.pos, cur_level().actor.pos)
 	actor_update_yaw(&main_actor, cur_level().actor.yaw)
 
 	render_target = r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
@@ -200,7 +203,10 @@ render_3d_scene :: proc() {
 
 			draw_walking_area()
 			draw_gizmo()
+			draw_debug_lines()
 		}
+
+
 	}
 	r.EndMode3D()
 }
@@ -230,4 +236,11 @@ draw_walking_area :: proc() {
 		r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
 		r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)
 	}
+}
+
+draw_debug_lines :: proc() {
+	for l in debug_lines {
+		r.DrawLine3D(l.start, l.end, l.color)
+	}
+	clear(&debug_lines)
 }
