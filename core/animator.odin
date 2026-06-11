@@ -1,7 +1,5 @@
 package core
 
-import "core:math"
-import "core:math/linalg"
 import r "vendor:raylib"
 
 //animations
@@ -68,90 +66,40 @@ actor_anim_update :: proc(actor: ^Actor) {
 	}
 }
 
-
-// rotate_neck :: proc(actor: ^Actor, interactable_pos: vec3) {
-// 	if actor.neck_bone_index == -1 do return
-
-// 	animator := &actor.animator
-// 	anim := &animator.anims[animator.anim_idx]
-// 	neck_idx := int(actor.neck_bone_index)
-// 	frame_idx := animator.anim_cur_frame
-
-// 	neck_pos := vec3{actor.pos.x, 1.7, actor.pos.z}
-
-// 	look_mat :=
-// 		r.MatrixInvert(r.MatrixLookAt(neck_pos, interactable_pos, UP)) *
-// 		r.MatrixRotateY(r.PI - actor.yaw)
-// 	draw_debug_line(neck_pos, interactable_pos, r.BEIGE)
-
-// 	/*
-// 	A 4x4 transform matrix in raylib (column-major) looks like:
-// 	[ Rx  Ux  Fx  Tx ]    R = right    (X basis)
-// 	[ Ry  Uy  Fy  Ty ]    U = up       (Y basis)
-// 	[ Rz  Uz  Fz  Tz ]    F = forward  (Z basis)
-// 	[  0   0   0   1 ]    T = translation
-// 	- Column 3 (Tx, Ty, Tz): translation/position
-// 	- Columns 0-2 (R, U, F): the 3x3 rotation/scale basis. For pure rotation, each column is unit length and orthogonal. For scale, length > 1.
-// 	- Bottom row is always [0, 0, 0, 1] for affine transforms.
-// 	*/
-
-// 	// 2. Generate a clean rotation quaternion around the Z axis (Roll)
-// 	custom_rotation := r.QuaternionFromMatrix(look_mat)
-// 	// 3. Loop through the skeleton to apply the rotation to the neck and all child bones
-// 	for i in 0 ..< int(actor.model.boneCount) {
-// 		if i == neck_idx {
-// 			original_rot := anim^.framePoses[frame_idx][i].rotation
-// 			// Custom rotation on the LEFT acts as a smooth parent space offset
-// 			anim^.framePoses[frame_idx][i].rotation = custom_rotation * original_rot
-
-// 		} else if is_child_of_neck(actor, i, neck_idx) {
-// 			original_rot := anim^.framePoses[frame_idx][i].rotation
-// 			// Custom rotation on the LEFT ensures children (head/eyes) turn with the neck
-// 			anim^.framePoses[frame_idx][i].rotation = custom_rotation * original_rot
-// 		}
-// 	}
-// }
-
+@(private = "file")
 rotate_neck :: proc(actor: ^Actor, interactable_pos: vec3) {
-    if actor.neck_bone_index == -1 do return
-    animator := &actor.animator
-    anim := &animator.anims[animator.anim_idx]
-    neck_idx := int(actor.neck_bone_index)
-    frame_idx := animator.anim_cur_frame
-    neck_pos := vec3{actor.pos.x, 1.7, actor.pos.z}
-    draw_debug_line(neck_pos, interactable_pos, r.BEIGE)
-    // World-space direction from neck to target
-    world_dir := r.Vector3Normalize(interactable_pos - neck_pos)
-    // Transform world direction -> model space
-    // Model transform is MatrixRotateY(yaw), so inverse is MatrixRotateY(-yaw)
-    c := math.cos(actor.yaw)
-    s := math.sin(actor.yaw)
-    local_dir := vec3{
-        world_dir.x * c - world_dir.z * s,
-        world_dir.y,
-        world_dir.x * s + world_dir.z * c,
-    }
-    local_dir = r.Vector3Normalize(local_dir)
-    // Shortest-path rotation from model +Z to target direction
-    FWD :: vec3{0, 0, 1}
-    cross := r.Vector3CrossProduct(FWD, local_dir)
-    len := r.Vector3Length(cross)
-    neck_rotation: r.Quaternion
-    if len > 0.0001 {
-        cross /= len
-        dot := math.clamp(r.Vector3DotProduct(FWD, local_dir), -1, 1)
-        neck_rotation = r.QuaternionFromAxisAngle(cross, math.acos(dot))
-    }
-    for i in 0 ..< int(actor.model.boneCount) {
-        if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
-            original_rot := anim^.framePoses[frame_idx][i].rotation
-            anim^.framePoses[frame_idx][i].rotation = neck_rotation * original_rot
-        }
-    }
+	// actor has no neck
+	if actor.neck_bone_index == -1 do return
+
+	animator := &actor.animator
+	anim := &animator.anims[animator.anim_idx]
+	neck_idx := int(actor.neck_bone_index)
+	frame_idx := animator.anim_cur_frame
+	
+	neck_pos := vec3{actor.pos.x, 1.7, actor.pos.z}
+	draw_debug_line(neck_pos, interactable_pos, r.BEIGE)
+
+	world_dir := r.Vector3Normalize(interactable_pos - neck_pos)
+	// The character can be rotated by `actor.yaw`. Bones in the animation are in
+	// the model's own local space, so we "undo" the yaw to get the correct local direction.
+	// MatrixRotateY(-actor.yaw) rotates the vector backward by the character's facing angle.
+	local_dir := r.Vector3Normalize(r.Vector3Transform(world_dir, r.MatrixRotateY(-actor.yaw)))
+
+	// MatrixLookAt looks along -Z, so we use -local_dir as the target.
+	// That makes +Z (the bone's default forward) point toward our target.
+	// We invert it because LookAt produces a view matrix; we want the object rotation.
+	lookat := r.MatrixInvert(r.MatrixLookAt(vec3{0, 0, 0}, -local_dir, UP))
+	neck_rotation := r.QuaternionFromMatrix(lookat)
+
+	for i in 0 ..< int(actor.model.boneCount) {
+		if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
+			anim^.framePoses[frame_idx][i].rotation =
+				neck_rotation * anim^.framePoses[frame_idx][i].rotation
+		}
+	}
 }
 
-
-// Keeping this as a clean structural nested proc context boundary utility
+@(private = "file")
 is_child_of_neck :: proc(actor: ^Actor, bone_index: int, target_parent_index: int) -> bool {
 	current_parent := actor.model.bones[bone_index].parent
 
