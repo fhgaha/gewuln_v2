@@ -174,7 +174,7 @@ handle_walk :: proc(dt: f32) {
 		cur_level().interactables[:],
 		main_actor,
 	)
-	cur_level().intersected_intractables = interact_trg
+	cur_level().intersected_interactables = interact_trg
 
 	interact_cond := interact_trg_found && input.wants_interact
 	idle_cond := input.move_dir == 0

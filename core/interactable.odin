@@ -34,7 +34,7 @@ Interactables_Naming_Table :: [?]struct {
 
 
 interact :: proc() {
-	for intr in cur_level().intersected_intractables {
+	for intr in cur_level().intersected_interactables {
 		switch d in intr.data {
 		case Door_Data:
 			assert(d.connected_level_name != "")

@@ -45,7 +45,7 @@ actor_anim_update :: proc(actor: ^Actor) {
 	frame_idx := animator.anim_cur_frame
 	neck_idx := int(actor.neck_bone_index)
 
-	if len(cur_level().intersected_intractables) > 0 {
+	if len(cur_level().intersected_interactables) > 0 {
 		// cash neck and its children bone rotations
 		cached: map[int]r.Quaternion
 		defer delete(cached)
@@ -55,7 +55,7 @@ actor_anim_update :: proc(actor: ^Actor) {
 			}
 		}
 
-		interactable_pos := get_interactable_center(&cur_level().intersected_intractables[0])
+		interactable_pos := get_interactable_center(&cur_level().intersected_interactables[0])
 		rotate_neck(actor, interactable_pos)
 		r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
 
