@@ -173,7 +173,7 @@ load_custom_props_from_glb :: proc(glb_path: string) -> Custom_Properties {
 			break
 		}
 	}
-	
+
 	return Custom_Properties{actor_pos = transl, actor_yaw = yaw}
 }
 
@@ -221,8 +221,27 @@ must :: proc(val: $T, ok: bool, loc := #caller_location) -> T {
 	return val
 }
 
-DebugLine :: struct { start, end: vec3, color: r.Color }
+DebugLine :: struct {
+	start, end: vec3,
+	color:      r.Color,
+}
 
 draw_debug_line :: proc(start, end: vec3, color: r.Color = r.RED) {
-    append(&debug_lines, DebugLine{start, end, color})
+	append(&debug_lines, DebugLine{start, end, color})
+}
+
+get_bone_transform :: proc(
+	model: ^r.Model,
+	bone_idx: int,
+	frame_poses: [^]r.Transform,
+) -> (
+	bool,
+	r.Transform,
+) {
+	for i in 0 ..< int(model.boneCount) {
+		if i == bone_idx {
+			return true, frame_poses[i]
+		}
+	}
+	return false, r.Transform{}
 }

@@ -75,11 +75,16 @@ rotate_neck :: proc(actor: ^Actor, interactable_pos: vec3) {
 	anim := &animator.anims[animator.anim_idx]
 	neck_idx := int(actor.neck_bone_index)
 	frame_idx := animator.anim_cur_frame
-	
-	neck_pos := vec3{actor.pos.x, 1.7, actor.pos.z}
-	draw_debug_line(neck_pos, interactable_pos, r.BEIGE)
 
-	world_dir := r.Vector3Normalize(interactable_pos - neck_pos)
+	ok, neck_pos_local := get_bone_transform(&actor.model, neck_idx, anim^.framePoses[frame_idx])
+	assert(ok)
+	world_neck_pos := neck_pos_local.translation + actor.pos
+
+	if .show_gizmos in flags {
+		draw_debug_line(world_neck_pos, interactable_pos, r.BEIGE)
+	}
+
+	world_dir := r.Vector3Normalize(interactable_pos - world_neck_pos)
 	// The character can be rotated by `actor.yaw`. Bones in the animation are in
 	// the model's own local space, so we "undo" the yaw to get the correct local direction.
 	// MatrixRotateY(-actor.yaw) rotates the vector backward by the character's facing angle.
