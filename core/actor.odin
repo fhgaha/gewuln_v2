@@ -141,10 +141,11 @@ handle_idle :: proc(dt: f32) {
 	// state transitions	
 	walk_cond := input.move_dir != 0
 
-	interact_trg, interact_tgr_found := get_interactable_colliding_actor(
-		cur_level().interactables[:],
-		main_actor,
-	)
+	// interact_trg, interact_tgr_found := get_interactable_colliding_actor(
+	// 	cur_level().interactables[:],
+	// 	main_actor,
+	// )
+	interact_tgr_found := len(cur_level().intersected_interactables) > 0
 
 	interact_cond := input.wants_interact && interact_tgr_found
 	switch {
@@ -172,10 +173,9 @@ handle_walk :: proc(dt: f32) {
 	// state transitions
 	interact_trg, interact_trg_found := get_interactable_colliding_actor(
 		cur_level().interactables[:],
-		main_actor,
+		&main_actor,
 	)
-	cur_level().intersected_interactables = interact_trg
-
+	
 	interact_cond := interact_trg_found && input.wants_interact
 	idle_cond := input.move_dir == 0
 	switch {
@@ -258,7 +258,7 @@ handle_interact :: proc() {
 
 get_interactable_colliding_actor :: proc(
 	interactables: []Interactable,
-	actor: Actor,
+	actor: ^Actor,
 ) -> (
 	colliding: [dynamic]Interactable,
 	found: bool,
@@ -279,6 +279,9 @@ get_interactable_colliding_actor :: proc(
 		}
 		fmt.println("interactables colliding actor: ", names_slice)
 	}
+	
+	// save in level
+	cur_level().intersected_interactables = colliding
 
 	if len(colliding) == 0 do return
 

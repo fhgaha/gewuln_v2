@@ -15,8 +15,8 @@ Flags :: enum {
 }
 
 Game_State :: struct {
-	cur_level: string,
-	levels:    map[string]Level,
+	cur_level_name: string,
+	levels:         map[string]Level,
 }
 
 Actors_Names :: enum {
@@ -70,14 +70,19 @@ main :: proc() {
 	r.SetTextureFilter(font.texture, .BILINEAR)
 	defer r.UnloadFont(font)
 
+
 	main_actor = create_actor_from_toml(game_config)
-	game_state.levels, game_state.cur_level = create_levels(game_config)
+	game_state.levels, game_state.cur_level_name = create_levels(game_config)
 
 	actor_update_pos(&main_actor, cur_level().actor.pos)
 	actor_update_yaw(&main_actor, cur_level().actor.yaw)
 
+
 	// testing
-	actor_update_pos(&main_actor, vec3{-4, 0, 4})
+	// actor_update_pos(&main_actor, vec3{-4, 0, 4})
+
+
+	_, __ := get_interactable_colliding_actor(cur_level().interactables[:], &main_actor)
 
 	render_target = r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	// r.SetTextureFilter(render_target.texture, .BILINEAR)

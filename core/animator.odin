@@ -1,5 +1,7 @@
 package core
 
+import "core:fmt"
+import "core:math"
 import r "vendor:raylib"
 
 //animations
@@ -43,23 +45,42 @@ actor_anim_update :: proc(actor: ^Actor) {
 	frame_idx := animator.anim_cur_frame
 	neck_idx := int(actor.neck_bone_index)
 
+
 	if len(cur_level().intersected_interactables) > 0 {
-		// cash neck and its children bone rotations
-		cached: map[int]r.Quaternion
-		defer delete(cached)
-		for i in 0 ..< int(actor.model.boneCount) {
-			if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
-				cached[i] = anim^.framePoses[frame_idx][i].rotation
-			}
-		}
+		ok, neck_transform_local := get_bone_transform(
+			&actor.model,
+			neck_idx,
+			anim^.framePoses[frame_idx],
+		)
+		assert(ok, "cant get bone transform")
 
 		interactable_pos := get_interactable_center(&cur_level().intersected_interactables[0])
-		rotate_neck(actor, interactable_pos)
-		r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
+		world_neck_pos := neck_transform_local.translation + actor.pos
+		world_dir := r.Vector3Normalize(interactable_pos - world_neck_pos)
+		local_dir := r.Vector3Normalize(r.Vector3Transform(world_dir, r.MatrixRotateY(-actor.yaw)))
+		angle_y := vec3_angle(vec3{local_dir.x, 0, local_dir.z}, FORWARD)
+		actor_is_looking_at_interactable := angle_y * r.RAD2DEG < ACTOR_NECK_MAX_YAW_DEG
 
-		// restore cashed neck and children bone rotations
-		for i, rot in cached {
-			anim^.framePoses[frame_idx][i].rotation = rot
+		if actor_is_looking_at_interactable {
+			// cash neck and its children bone rotations
+			cached: map[int]r.Quaternion
+			defer delete(cached)
+			for i in 0 ..< int(actor.model.boneCount) {
+				if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
+					cached[i] = anim^.framePoses[frame_idx][i].rotation
+				}
+			}
+
+			interactable_pos := get_interactable_center(&cur_level().intersected_interactables[0])
+			rotate_neck(actor, interactable_pos)
+			r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
+
+			// restore cashed neck and children bone rotations
+			for i, rot in cached {
+				anim^.framePoses[frame_idx][i].rotation = rot
+			}
+		} else {
+			r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
 		}
 	} else {
 		r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
@@ -77,18 +98,41 @@ rotate_neck :: proc(actor: ^Actor, interactable_pos: vec3) {
 	frame_idx := animator.anim_cur_frame
 
 	ok, neck_pos_local := get_bone_transform(&actor.model, neck_idx, anim^.framePoses[frame_idx])
-	assert(ok)
+	assert(ok, "cant get bone transform")
 	world_neck_pos := neck_pos_local.translation + actor.pos
 
 	if .show_gizmos in flags {
 		draw_debug_line(world_neck_pos, interactable_pos, r.BEIGE)
 	}
 
+	// Direction from neck to interactable, does not depend on actor's yaw
 	world_dir := r.Vector3Normalize(interactable_pos - world_neck_pos)
 	// The character can be rotated by `actor.yaw`. Bones in the animation are in
 	// the model's own local space, so we "undo" the yaw to get the correct local direction.
 	// MatrixRotateY(-actor.yaw) rotates the vector backward by the character's facing angle.
+	// This changes when the character rotates
 	local_dir := r.Vector3Normalize(r.Vector3Transform(world_dir, r.MatrixRotateY(-actor.yaw)))
+
+	// Limit pitch. Actor keeps looking at the target but head does not pitch too much.
+	pitch := math.asin(clamp(local_dir.y, -1, 1))
+	pitch = clamp(
+		pitch,
+		-ACTOR_NECK_MAX_PITCH_DEG * r.DEG2RAD,
+		ACTOR_NECK_MAX_PITCH_DEG * r.DEG2RAD,
+	)
+	// Reconstruct direction: preserve horizontal (yaw) direction, apply clamped pitch
+	horiz_len := math.sqrt(local_dir.x * local_dir.x + local_dir.z * local_dir.z)
+	if horiz_len > 0.001 {
+		scale := math.cos(pitch) / horiz_len
+		local_dir.x *= scale
+		local_dir.z *= scale
+	} else {
+		// Vertical edge case — pick forward (+Z) as default horizontal
+		local_dir.x = 0
+		local_dir.z = math.cos(pitch)
+	}
+	local_dir.y = math.sin(pitch)
+
 
 	// MatrixLookAt looks along -Z, so we use -local_dir as the target.
 	// That makes +Z (the bone's default forward) point toward our target.

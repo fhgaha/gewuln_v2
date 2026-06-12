@@ -6,7 +6,7 @@ vec2 :: [2]f32
 vec3 :: [3]f32
 vec4 :: [4]f32
 
-tri2 :: [3]vec2 
+tri2 :: [3]vec2
 tri3 :: [3]vec3
 
 WINDOW_WIDTH :: 1280
@@ -27,3 +27,7 @@ UP :: vec3{0, 1, 0}
 DOWN :: vec3{0, -1, 0}
 FORWARD :: vec3{0, 0, 1}
 BACKWARD :: vec3{0, 0, -1}
+
+// neck rotation
+ACTOR_NECK_MAX_YAW_DEG :: 70
+ACTOR_NECK_MAX_PITCH_DEG :: 30

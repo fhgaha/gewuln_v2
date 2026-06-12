@@ -153,7 +153,11 @@ destroy_level :: proc() {
 }
 
 load_level :: proc(lvl: ^Level) {
-
+	// do this once at start in case actor appeared inside of interactable
+	_, __ := get_interactable_colliding_actor(
+		cur_level().interactables[:],
+		&main_actor,
+	)
 }
 
 unload_level :: proc(lvl: ^Level) {
@@ -163,17 +167,17 @@ unload_level :: proc(lvl: ^Level) {
 change_level :: proc(state: ^Game_State, next: ^Level) {
 	unload_level(cur_level())
 	load_level(next)
-	state.cur_level = next.name
+	state.cur_level_name = next.name
 }
 
 cur_level :: proc() -> ^Level {
-	level_ptr, ok := &game_state.levels[game_state.cur_level]
+	level_ptr, ok := &game_state.levels[game_state.cur_level_name]
 	if !ok {
 		fmt.print("Available levels: ")
 		for k, _ in game_state.levels do fmt.printf("'%s' ", k)
 		fmt.println()
 
-		fmt.panicf("Level '%s' not found in map!", game_state.cur_level)
+		fmt.panicf("Level '%s' not found in map!", game_state.cur_level_name)
 	}
 
 	return level_ptr
