@@ -12,6 +12,7 @@ Flags :: enum {
 	paused,
 	camera_debug,
 	camera_follow,
+	print_debug_info,
 }
 
 Game_State :: struct {
@@ -23,7 +24,6 @@ Actors_Names :: enum {
 	mona,
 }
 
-DT :: 1.0 / 60.0 // 16 ms, 0.016 s
 game_config_data := #load("../config.toml")
 game_config: ^toml.Table
 
@@ -43,7 +43,7 @@ fxaa_intensity_loc: i32
 debug_lines: [dynamic]DebugLine
 
 main :: proc() {
-	flags = {.lock_cursor, .camera_debug, .show_gizmos}
+	flags = {.lock_cursor, .camera_debug, .show_gizmos, .print_debug_info}
 
 	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_RESIZABLE})
 
@@ -79,8 +79,7 @@ main :: proc() {
 
 
 	// testing
-	// actor_update_pos(&main_actor, vec3{-4, 0, 4})
-
+	actor_update_pos(&main_actor, delta_pos = vec3{-4, 0, 4})
 
 	_, __ := get_interactable_colliding_actor(cur_level().interactables[:], &main_actor)
 

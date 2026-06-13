@@ -39,113 +39,69 @@ play_anim :: proc(animator: ^Animator, state: Actor_State) {
 
 
 actor_anim_update :: proc(actor: ^Actor) {
-	animator := &actor.animator
-	anim := &animator.anims[animator.anim_idx]
-	animator.anim_cur_frame = (animator.anim_cur_frame + 1) % anim.frameCount
-	frame_idx := animator.anim_cur_frame
-	neck_idx := int(actor.neck_bone_index)
-
-
-	if len(cur_level().intersected_interactables) > 0 {
-		ok, neck_transform_local := get_bone_transform(
-			&actor.model,
-			neck_idx,
-			anim^.framePoses[frame_idx],
-		)
-		assert(ok, "cant get bone transform")
-
-		interactable_pos := get_interactable_center(&cur_level().intersected_interactables[0])
-		world_neck_pos := neck_transform_local.translation + actor.pos
-		world_dir := r.Vector3Normalize(interactable_pos - world_neck_pos)
-		local_dir := r.Vector3Normalize(r.Vector3Transform(world_dir, r.MatrixRotateY(-actor.yaw)))
-		angle_y := vec3_angle(vec3{local_dir.x, 0, local_dir.z}, FORWARD)
-		actor_is_looking_at_interactable := angle_y * r.RAD2DEG < ACTOR_NECK_MAX_YAW_DEG
-
-		if actor_is_looking_at_interactable {
-			// cash neck and its children bone rotations
-			cached: map[int]r.Quaternion
-			defer delete(cached)
-			for i in 0 ..< int(actor.model.boneCount) {
-				if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
-					cached[i] = anim^.framePoses[frame_idx][i].rotation
-				}
-			}
-
-			interactable_pos := get_interactable_center(&cur_level().intersected_interactables[0])
-			rotate_neck(actor, interactable_pos)
-			r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
-
-			// restore cashed neck and children bone rotations
-			for i, rot in cached {
-				anim^.framePoses[frame_idx][i].rotation = rot
-			}
-		} else {
-			r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
-		}
-	} else {
-		r.UpdateModelAnimation(actor.model, anim^, animator.anim_cur_frame)
-	}
+    animator := &actor.animator
+    anim := &animator.anims[animator.anim_idx]
+    frame_idx := animator.anim_cur_frame
+    animator.anim_cur_frame = (animator.anim_cur_frame + 1) % anim.frameCount
+    neck_idx := int(actor.neck_bone_index)
+    // Cache neck+children rotations (if neck exists)
+    cached: map[int]r.Quaternion
+    defer {
+        for i, rot in cached {
+            anim^.framePoses[frame_idx][i].rotation = rot
+        }
+        delete(cached)
+    }
+    if neck_idx != -1 {
+        for i in 0 ..< int(actor.model.boneCount) {
+            if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
+                cached[i] = anim^.framePoses[frame_idx][i].rotation
+            }
+        }
+    }
+    // Determine target: identity unless looking at an interactable
+    target := r.Quaternion(1)
+    if neck_idx != -1 && len(cur_level().intersected_interactables) > 0 {
+        ok, neck_local := get_bone_transform(&actor.model, neck_idx, anim^.framePoses[frame_idx])
+        assert(ok, "cant get bone transform")
+        neck_pos := neck_local.translation + actor.pos
+        world_dir := r.Vector3Normalize(get_interactable_center(&cur_level().intersected_interactables[0]) - neck_pos)
+        local_dir := r.Vector3Normalize(r.Vector3Transform(world_dir, r.MatrixRotateY(-actor.yaw)))
+        angle_y := vec3_angle(vec3{local_dir.x, 0, local_dir.z}, FORWARD)
+        if angle_y * r.RAD2DEG < ACTOR_NECK_MAX_YAW_DEG {
+            if .show_gizmos in flags {
+                draw_debug_line(neck_pos, get_interactable_center(&cur_level().intersected_interactables[0]), r.BEIGE)
+            }
+            target = neck_target_rotation(local_dir)
+        }
+    }
+    // Slerp delta toward target (identity → smooth decay when not looking)
+    actor.neck_current_delta = r.QuaternionSlerp(actor.neck_current_delta, target, 0.15)
+    // Apply smoothed delta to cached bones
+    for i, original_rot in cached {
+        anim^.framePoses[frame_idx][i].rotation = actor.neck_current_delta * original_rot
+    }
+    r.UpdateModelAnimation(actor.model, anim^, frame_idx)
+    // (defer) restore cached rotations and delete map
 }
 
 @(private = "file")
-rotate_neck :: proc(actor: ^Actor, interactable_pos: vec3) {
-	// actor has no neck
-	if actor.neck_bone_index == -1 do return
-
-	animator := &actor.animator
-	anim := &animator.anims[animator.anim_idx]
-	neck_idx := int(actor.neck_bone_index)
-	frame_idx := animator.anim_cur_frame
-
-	ok, neck_pos_local := get_bone_transform(&actor.model, neck_idx, anim^.framePoses[frame_idx])
-	assert(ok, "cant get bone transform")
-	world_neck_pos := neck_pos_local.translation + actor.pos
-
-	if .show_gizmos in flags {
-		draw_debug_line(world_neck_pos, interactable_pos, r.BEIGE)
-	}
-
-	// Direction from neck to interactable, does not depend on actor's yaw
-	world_dir := r.Vector3Normalize(interactable_pos - world_neck_pos)
-	// The character can be rotated by `actor.yaw`. Bones in the animation are in
-	// the model's own local space, so we "undo" the yaw to get the correct local direction.
-	// MatrixRotateY(-actor.yaw) rotates the vector backward by the character's facing angle.
-	// This changes when the character rotates
-	local_dir := r.Vector3Normalize(r.Vector3Transform(world_dir, r.MatrixRotateY(-actor.yaw)))
-
-	// Limit pitch. Actor keeps looking at the target but head does not pitch too much.
-	pitch := math.asin(clamp(local_dir.y, -1, 1))
-	pitch = clamp(
-		pitch,
-		-ACTOR_NECK_MAX_PITCH_DEG * r.DEG2RAD,
-		ACTOR_NECK_MAX_PITCH_DEG * r.DEG2RAD,
-	)
-	// Reconstruct direction: preserve horizontal (yaw) direction, apply clamped pitch
-	horiz_len := math.sqrt(local_dir.x * local_dir.x + local_dir.z * local_dir.z)
-	if horiz_len > 0.001 {
-		scale := math.cos(pitch) / horiz_len
-		local_dir.x *= scale
-		local_dir.z *= scale
-	} else {
-		// Vertical edge case — pick forward (+Z) as default horizontal
-		local_dir.x = 0
-		local_dir.z = math.cos(pitch)
-	}
-	local_dir.y = math.sin(pitch)
-
-
-	// MatrixLookAt looks along -Z, so we use -local_dir as the target.
-	// That makes +Z (the bone's default forward) point toward our target.
-	// We invert it because LookAt produces a view matrix; we want the object rotation.
-	lookat := r.MatrixInvert(r.MatrixLookAt(vec3{0, 0, 0}, -local_dir, UP))
-	neck_rotation := r.QuaternionFromMatrix(lookat)
-
-	for i in 0 ..< int(actor.model.boneCount) {
-		if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
-			anim^.framePoses[frame_idx][i].rotation =
-				neck_rotation * anim^.framePoses[frame_idx][i].rotation
-		}
-	}
+neck_target_rotation :: proc(local_dir: vec3) -> r.Quaternion {
+    pitch := math.asin(clamp(local_dir.y, -1, 1))
+    pitch = clamp(pitch, -ACTOR_NECK_MAX_PITCH_DEG * r.DEG2RAD, ACTOR_NECK_MAX_PITCH_DEG * r.DEG2RAD)
+    horiz_len := math.sqrt(local_dir.x * local_dir.x + local_dir.z * local_dir.z)
+    clamped_dir := local_dir
+    if horiz_len > 0.001 {
+        scale := math.cos(pitch) / horiz_len
+        clamped_dir.x *= scale
+        clamped_dir.z *= scale
+    } else {
+        clamped_dir.x = 0
+        clamped_dir.z = math.cos(pitch)
+    }
+    clamped_dir.y = math.sin(pitch)
+    lookat := r.MatrixInvert(r.MatrixLookAt(vec3{0, 0, 0}, -clamped_dir, UP))
+    return r.QuaternionFromMatrix(lookat)
 }
 
 @(private = "file")

@@ -2,6 +2,7 @@ first_level_name = "test_room"
 # first_level_name = "another_test_room"
 
 [main_actor]
+name     = "mona"
 model    = "assets/models/mona_sax/export/glb/mona.glb"
 collider = "assets/models/mona_sax/export/glb/collider.glb"
 
@@ -45,8 +46,8 @@ room_glb      = "assets/models/another_test_room/export/glb/room.glb"
 walk_area_glb = "assets/models/another_test_room/export/glb/walk_area.glb"
 
 	[levels.camera]
-	pos    = [5.0, 3.0, 10.0]	# not used
-	target = [0.0, 0.0, 0.0]	# not used
+	pos    = [5.0, 3.0, 10.0] # not used
+	target = [0.0, 0.0, 0.0]  # not used
 
 	[[levels.interactables]]
 	#TODO mock here

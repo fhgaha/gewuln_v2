@@ -18,6 +18,8 @@ WINDOW_HEIGHT :: 720
 RENDER_WIDTH :: 640
 RENDER_HEIGHT :: 360
 
+DT :: 1.0 / 60.0 // 16 ms, 0.016 s
+
 DARK :: r.Color{40, 40, 40, 255}
 FOV_DEG :: 90
 
