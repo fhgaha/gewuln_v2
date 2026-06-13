@@ -157,6 +157,7 @@ load_custom_props_from_glb :: proc(glb_path: string) -> Custom_Properties {
 	actors_placements: [dynamic]Actor_Placement
 
 	for node in json_data.(json.Object)["nodes"].(json.Array) {
+		// shouldnt use this. just load levels with characters placed
 		fill_actor_placements(&actors_placements, node, "spawn_pos")
 	}
 
@@ -169,6 +170,8 @@ load_custom_props_from_glb :: proc(glb_path: string) -> Custom_Properties {
 	return Custom_Properties{actors_positions = aps_mock}
 }
 
+// shouldnt use this. just load levels with characters placed
+@(private = "file")
 fill_actor_placements :: proc(
 	actors_placements_to_fill: ^[dynamic]Actor_Placement,
 	node: json.Value,
@@ -218,7 +221,7 @@ fill_actor_placements :: proc(
 
 get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
 	data, ok := os.read_entire_file(glb_path)
-	assert(ok)
+	assert(ok, "couldnt read file")
 	defer delete(data)
 
 	// 4 bytes "glTF", 4 bytes version, 4 bytes glb length, 4 bytes json chunk length, 4 bytes "JSON". each symbol is 1 byte

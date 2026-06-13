@@ -74,6 +74,10 @@ main :: proc() {
 	main_actor = create_actor_from_toml(game_config)
 	game_state.levels, game_state.cur_level_name = create_levels(game_config)
 
+
+	actor_update_pos(&main_actor, delta_pos = cur_level().actors_places[0].pos)
+	actor_update_yaw(&main_actor, cur_level().actors_places[0].yaw)
+
 	actor_update_pos(&main_actor, delta_pos = vec3{-4, 0, 4}) // why this shit works not as delta anymore but as a point where to be??
 	actor_update_yaw(&main_actor, 0)
 
