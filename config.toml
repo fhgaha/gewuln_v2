@@ -40,6 +40,14 @@ walk_area_glb = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
 			text      = "I never knew physics could be so poetic."
 			direction = "gazing at the sky"
 
+	[[levels.actors]]
+	name  = "bob"
+	model = "assets/models/cleaner_a/export/cleaner_a.glb"
+	# collider = "assets/models/mona_sax/export/glb/collider.glb"
+	pos = [1.0, 0.0, 1.0]
+	yaw = 30
+
+
 [[levels]]
 name          = "another_test_room"
 room_glb      = "assets/models/another_test_room/export/glb/room.glb"
@@ -55,3 +63,5 @@ walk_area_glb = "assets/models/another_test_room/export/glb/walk_area.glb"
 	name = "rusty_lever"
 	glb  = "assets/models/another_test_room/export/glb/walk_area.glb"
 		[levels.interactables.data]
+
+	[[levels.actors]]
