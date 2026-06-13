@@ -74,12 +74,11 @@ main :: proc() {
 	main_actor = create_actor_from_toml(game_config)
 	game_state.levels, game_state.cur_level_name = create_levels(game_config)
 
-	actor_update_pos(&main_actor, cur_level().actor.pos)
-	actor_update_yaw(&main_actor, cur_level().actor.yaw)
+	actor_update_pos(&main_actor, delta_pos = vec3{-4, 0, 4}) // why this shit works not as delta anymore but as a point where to be??
+	actor_update_yaw(&main_actor, 0)
 
 
 	// testing
-	actor_update_pos(&main_actor, delta_pos = vec3{-4, 0, 4})
 
 	_, __ := get_interactable_colliding_actor(cur_level().interactables[:], &main_actor)
 

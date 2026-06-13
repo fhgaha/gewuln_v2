@@ -147,50 +147,72 @@ extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri3) {
 
 
 Custom_Properties :: struct {
-	actor_pos: vec3,
-	actor_yaw: f32,
+	actors_positions: [dynamic]Actor_Placement,
 }
 
 load_custom_props_from_glb :: proc(glb_path: string) -> Custom_Properties {
 	json_data := get_json_chunk_from_glb(glb_path)
 	defer json.destroy_value(json_data)
 
-	transl: vec3
-	yaw: f32
+	actors_placements: [dynamic]Actor_Placement
 
 	for node in json_data.(json.Object)["nodes"].(json.Array) {
-		if node.(json.Object)["name"].(json.String) == "actor" {
-			tr := node.(json.Object)["translation"].(json.Array)
-
-			for i in 0 ..< 3 {
-				#partial switch v in tr[i] {
-				case json.Float:
-					transl[i] = f32(v)
-				case json.Integer:
-					transl[i] = f32(v)
-				}
-			}
-
-			// glb uses quaternions for rotations: "rotation":[0,0.7071068286895752,0,0.7071068286895752],
-			rotat := node.(json.Object)["rotation"].(json.Array)
-
-			rt: [4]f32
-			for i in 0 ..< 4 {
-				#partial switch v in rotat[i] {
-				case json.Float:
-					rt[i] = f32(v)
-				case json.Integer:
-					rt[i] = f32(v)
-				}
-			}
-
-			yaw = math.atan2(2 * (rt.w * rt.y + rt.x * rt.z), 1 - 2 * (rt.x * rt.x + rt.y * rt.y))
-
-			break
-		}
+		fill_actor_placements(&actors_placements, node, "spawn_pos")
 	}
 
-	return Custom_Properties{actor_pos = transl, actor_yaw = yaw}
+	// print(actors_placements)
+
+	aps_mock: [dynamic]Actor_Placement
+	append(&aps_mock, Actor_Placement{pos = vec3{1.5, 0, 2.0}, yaw = 0})
+
+	// return Custom_Properties{actor_pos = transl, actor_yaw = yaw}
+	return Custom_Properties{actors_positions = aps_mock}
+}
+
+fill_actor_placements :: proc(
+	actors_placements_to_fill: ^[dynamic]Actor_Placement,
+	node: json.Value,
+	value: string,
+) {
+	value_ := strings.to_lower(value)
+	name_value := node.(json.Object)["name"].(json.String)
+	name_value_ := strings.to_lower(name_value)
+	if strings.contains(name_value, value_) {
+		ap: Actor_Placement
+
+		tr := node.(json.Object)["translation"]
+		if tr != nil {
+			for i in 0 ..< 3 {
+				#partial switch v in tr.(json.Array)[i] {
+				case json.Float:
+					ap.pos[i] = f32(v)
+				case json.Integer:
+					ap.pos[i] = f32(v)
+				}
+			}
+		}
+
+		// glb uses quaternions for rotations: "rotation":[0,0.7071068286895752,0,0.7071068286895752],
+		rot_val := node.(json.Object)["rotation"]
+		quat: [4]f32
+		if rot_val != nil {
+			for i in 0 ..< 4 {
+				#partial switch v in rot_val.(json.Array)[i] {
+				case json.Float:
+					quat[i] = f32(v)
+				case json.Integer:
+					quat[i] = f32(v)
+				}
+			}
+		}
+
+		ap.yaw = math.atan2(
+			2 * (quat.w * quat.y + quat.x * quat.z),
+			1 - 2 * (quat.x * quat.x + quat.y * quat.y),
+		)
+
+		append(actors_placements_to_fill, ap)
+	}
 }
 
 

@@ -8,17 +8,23 @@ import r "vendor:raylib"
 
 
 Level :: struct {
-	name:                     string,
-	cam:                      r.Camera3D,
-	room:                     r.Model,
-	walk_area:                r.Model,
-	walk_area_tris:           [dynamic]tri3,
-	interactables:            [dynamic]Interactable,
-	actor:                    struct {
-		pos: vec3,
-		yaw: f32,
-	},
+	name:                      string,
+	cam:                       r.Camera3D,
+	room:                      r.Model,
+	walk_area:                 r.Model,
+	walk_area_tris:            [dynamic]tri3,
+	interactables:             [dynamic]Interactable,
+	// actor:                    struct {
+	// 	pos: vec3,
+	// 	yaw: f32,
+	// },
+	actors_places:             [dynamic]Actor_Placement,
 	intersected_interactables: [dynamic]Interactable, //currently colliding with main actor interactables
+}
+
+Actor_Placement :: struct {
+	pos: vec3,
+	yaw: f32,
 }
 
 create_levels :: proc(
@@ -129,6 +135,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	assert(main_actor.initialised, "actor must be initialised before placing it into a room")
 	custom_props := load_custom_props_from_glb(room_glb_str)
 
+
 	level := Level {
 		name = room_name,
 		cam = r.Camera3D {
@@ -142,7 +149,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 		walk_area = walk_area,
 		walk_area_tris = walk_area_tris,
 		interactables = interactables,
-		actor = {pos = custom_props.actor_pos, yaw = custom_props.actor_yaw},
+		actors_places = custom_props.actors_positions,
 	}
 
 	return level
@@ -154,10 +161,7 @@ destroy_level :: proc() {
 
 load_level :: proc(lvl: ^Level) {
 	// do this once at start in case actor appeared inside of interactable
-	_, __ := get_interactable_colliding_actor(
-		cur_level().interactables[:],
-		&main_actor,
-	)
+	_, __ := get_interactable_colliding_actor(cur_level().interactables[:], &main_actor)
 }
 
 unload_level :: proc(lvl: ^Level) {

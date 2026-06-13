@@ -39,7 +39,7 @@ walk_area_glb = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
 			character = "alice"
 			text      = "I never knew physics could be so poetic."
 			direction = "gazing at the sky"
-
+	
 	[[levels.actors]]
 	name  = "bob"
 	model = "assets/models/cleaner_a/export/cleaner_a.glb"
