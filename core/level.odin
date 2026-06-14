@@ -6,6 +6,7 @@ import "core:fmt"
 import "core:math"
 import "core:mem"
 import "core:os"
+import "core:slice"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -77,6 +78,24 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 			}
 		}
 	}
+	// set mesh idx for intereactables
+	for i in 0 ..< room.meshCount {
+		m := room.meshes[i]
+		bb := r.GetMeshBoundingBox(m)
+		center := (bb.min + bb.max) * 0.5
+
+		for &intr in interactables {
+			if intr.mesh_index != -1 do continue
+			if r.Vector3Distance(center, intr.pos) >= 0.1 do continue
+			intr.mesh_index = i32(i)
+		}
+	}
+	for intr in interactables {
+		assert(intr.mesh_index != -1, "interactable not matched to any mesh")
+
+		// mat_idx := room.meshMaterial[intr.mesh_index]
+		// room.materials[mat_idx].maps[r.MaterialMapIndex.ALBEDO].color.a = 0
+	}
 
 	// custom props
 
@@ -112,10 +131,10 @@ parse_interactable_from_json :: proc(node: json.Object) -> Interactable {
 	}
 
 	return Interactable {
-		name = node["name"].(json.String),
-		pos = pos,
-		mesh_index = i32(node["mesh"].(json.Integer)),
-		data = data,
+		name       = node["name"].(json.String),
+		pos        = pos,
+		mesh_index = -1, // these will be taken from loaded meshes
+		data       = data,
 	}
 }
 

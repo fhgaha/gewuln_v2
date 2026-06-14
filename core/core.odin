@@ -198,7 +198,16 @@ render_3d_scene :: proc() {
 
 	r.BeginMode3D(cur_level().cam)
 	{
-		r.DrawModel(cur_level().room, vec3{0, 0, 0}, 1, r.GRAY)
+		// r.DrawModel(cur_level().room, vec3{0, 0, 0}, 1, r.GRAY)
+		for i in 0 ..< cur_level().room.meshCount {
+			if is_interactable_mesh(cur_level().interactables[:], i) do continue
+			r.DrawMesh(
+				cur_level().room.meshes[i],
+				cur_level().room.materials[cur_level().room.meshMaterial[i]],
+				r.Matrix(1),
+			)
+		}
+
 
 		r.DrawModel(main_actor.model, main_actor.pos, 1, r.WHITE)
 		// r.DrawModelWires(actor.model, actor.pos, 1, r.GREEN)
@@ -220,6 +229,14 @@ render_3d_scene :: proc() {
 	r.EndMode3D()
 }
 
+draw_interactables :: proc(color: r.Color = r.RED) {
+	for intr in cur_level().interactables {
+		bb := r.GetMeshBoundingBox(cur_level().room.meshes[intr.mesh_index])
+		r.DrawBoundingBox(bb, color)
+		center := (bb.max + bb.min) * 0.5
+		r.DrawSphereWires(center, 0.1, 3, 4, color)
+	}
+}
 
 draw_gizmo :: proc() {
 	dist := r.Vector3Distance(cur_level().cam.position, vec3{0, 0, 0})

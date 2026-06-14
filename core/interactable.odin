@@ -24,7 +24,7 @@ Interactable :: struct {
 	pos:   vec3,
 	mesh_index: i32,
 	data:  Interactable_Data_Union,
-	
+
 	// TODO remvoe
 	model: r.Model,
 }
@@ -60,13 +60,14 @@ string_to_interactable_type :: proc(str: string) -> (Interactable_Type, bool) {
 	return .None, false
 }
 
-draw_interactables :: proc(color: r.Color = r.RED) {
-	for intr in cur_level().interactables {
-		r.DrawModelWires(intr.model, pos_from_transform(intr.model.transform), 1, color)
-	}
-}
-
 get_interactable_center :: proc(interactable: ^Interactable) -> vec3 {
 	bb := r.GetModelBoundingBox(interactable.model)
 	return (bb.min + bb.max) * 0.5
+}
+
+is_interactable_mesh :: proc(interactables: []Interactable, mesh_index: i32) -> bool {
+    for intr in interactables {
+        if intr.mesh_index == mesh_index do return true
+    }
+    return false
 }
