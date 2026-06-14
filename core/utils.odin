@@ -116,7 +116,7 @@ bounding_box_inside_walk_area :: proc(
 //
 // meshes
 //
-extract_tris :: proc(model: ^r.Model, out: ^[dynamic]tri3) {
+extract_tris :: proc(out: ^[dynamic]tri3, model: ^r.Model) {
 	tris: [dynamic]tri3
 	defer delete(tris)
 
@@ -146,101 +146,6 @@ extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri3) {
 }
 
 
-Custom_Properties :: struct {
-	actors_positions: [dynamic]Actor_Placement,
-}
-
-load_custom_props_from_glb :: proc(glb_path: string) -> Custom_Properties {
-	json_data := get_json_chunk_from_glb(glb_path)
-	defer json.destroy_value(json_data)
-
-	actors_placements: [dynamic]Actor_Placement
-
-	for node in json_data.(json.Object)["nodes"].(json.Array) {
-		// shouldnt use this. just load levels with characters placed
-		fill_actor_placements(&actors_placements, node, "spawn_pos")
-	}
-
-	// print(actors_placements)
-
-	aps_mock: [dynamic]Actor_Placement
-	append(&aps_mock, Actor_Placement{pos = vec3{1.5, 0, 2.0}, yaw = 0})
-
-	// return Custom_Properties{actor_pos = transl, actor_yaw = yaw}
-	return Custom_Properties{actors_positions = aps_mock}
-}
-
-// shouldnt use this. just load levels with characters placed
-@(private = "file")
-fill_actor_placements :: proc(
-	actors_placements_to_fill: ^[dynamic]Actor_Placement,
-	node: json.Value,
-	value: string,
-) {
-	value_ := strings.to_lower(value)
-	name_value := node.(json.Object)["name"].(json.String)
-	name_value_ := strings.to_lower(name_value)
-	if strings.contains(name_value, value_) {
-		ap: Actor_Placement
-
-		tr := node.(json.Object)["translation"]
-		if tr != nil {
-			for i in 0 ..< 3 {
-				#partial switch v in tr.(json.Array)[i] {
-				case json.Float:
-					ap.pos[i] = f32(v)
-				case json.Integer:
-					ap.pos[i] = f32(v)
-				}
-			}
-		}
-
-		// glb uses quaternions for rotations: "rotation":[0,0.7071068286895752,0,0.7071068286895752],
-		rot_val := node.(json.Object)["rotation"]
-		quat: [4]f32
-		if rot_val != nil {
-			for i in 0 ..< 4 {
-				#partial switch v in rot_val.(json.Array)[i] {
-				case json.Float:
-					quat[i] = f32(v)
-				case json.Integer:
-					quat[i] = f32(v)
-				}
-			}
-		}
-
-		ap.yaw = math.atan2(
-			2 * (quat.w * quat.y + quat.x * quat.z),
-			1 - 2 * (quat.x * quat.x + quat.y * quat.y),
-		)
-
-		append(actors_placements_to_fill, ap)
-	}
-}
-
-
-get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
-	data, ok := os.read_entire_file(glb_path)
-	assert(ok, "couldnt read file")
-	defer delete(data)
-
-	// 4 bytes "glTF", 4 bytes version, 4 bytes glb length, 4 bytes json chunk length, 4 bytes "JSON". each symbol is 1 byte
-
-	// Cast a slice of bytes directly to a slice of u32, then take the first element
-	chunk_length := mem.reinterpret_copy(u32, raw_data(data[12:16]))
-	// chunk_type: u32 = mem.slice_data_cast([]u32, data[16:20])[0]
-
-	res, err := strings.clone_from_bytes(data[16:20])
-	assert(res == "JSON" && err == .None)
-
-	json_data := data[20:(20 + chunk_length)]
-
-	parsed, parsed_err := json.parse(json_data, json.DEFAULT_SPECIFICATION, parse_integers = true)
-	assert(parsed_err == .None)
-
-	return parsed
-}
-
 //
 // Helper to gather input in one place (e.g., in your main loop)
 //
@@ -256,9 +161,13 @@ print :: proc(args: ..any) {
 	fmt.println("here: ", args)
 }
 
+print_pretty :: proc(args: ..any) {
+	fmt.printf("here: %#v\n", args)
+}
+
 @(require_results)
-must :: proc(val: $T, ok: bool, loc := #caller_location) -> T {
-	if !ok do panic("Value is not ok!", loc)
+must :: proc(val: $T, ok: bool, msg := "Value is not ok!", loc := #caller_location) -> T {
+	if !ok do panic(msg, loc)
 	return val
 }
 

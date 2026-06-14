@@ -1,8 +1,11 @@
 package core
 
 import "../packages/toml"
+import "core:encoding/json"
 import "core:fmt"
+import "core:math"
 import "core:mem"
+import "core:os"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -14,10 +17,6 @@ Level :: struct {
 	walk_area:                 r.Model,
 	walk_area_tris:            [dynamic]tri3,
 	interactables:             [dynamic]Interactable,
-	// actor:                    struct {
-	// 	pos: vec3,
-	// 	yaw: f32,
-	// },
 	actors_places:             [dynamic]Actor_Placement,
 	intersected_interactables: [dynamic]Interactable, //currently colliding with main actor interactables
 }
@@ -33,10 +32,10 @@ create_levels :: proc(
 	levels: map[string]Level,
 	first_level_name: string,
 ) {
-	levels_table, ok2 := toml.get_list(section, "levels"); assert(ok2)
-
-	ok1: bool
-	first_level_name, ok1 = toml.get_string(section, "first_level_name"); assert(ok1)
+	levels_table: ^toml.List
+	ok: bool
+	levels_table, ok = toml.get_list(section, "levels"); assert(ok)
+	first_level_name, ok = toml.get_string(section, "first_level_name"); assert(ok)
 
 	for lvl_table, i in levels_table {
 		lvl := create_level(lvl_table.(^toml.Table))
@@ -47,100 +46,49 @@ create_levels :: proc(
 
 create_level :: proc(level_table: ^toml.Table) -> Level {
 
-	// camera
-
-	cam_pos_table := must(toml.get_list(level_table, "camera", "pos"))
-	cam_pos: [3]f32
-	for i in 0 ..< 3 {
-		#partial switch v in cam_pos_table[i] {
-		case i64:
-		case f64:
-			cam_pos[i] = f32(v)
-		}
-	}
-
-	cam_target_table := must(toml.get_list(level_table, "camera", "target"))
-
-	cam_target: [3]f32
-	for i in 0 ..< 3 {
-		#partial switch v in cam_target_table[i] {
-		case i64:
-		case f64:
-			cam_target[i] = f32(v)
-		}
-	}
-
 	// room
 
 	room_name := must(toml.get_string(level_table, "name"))
-
-	room_glb_str := must(toml.get_string(level_table, "room_glb"))
-	room_glb_cstr := strings.clone_to_cstring(room_glb_str)
-	room := r.LoadModel(room_glb_cstr)
-	delete(room_glb_cstr)
-
+	room_glb_path := must(toml.get_string(level_table, "room_glb"))
+	room := r.LoadModel(strings.clone_to_cstring(room_glb_path))
 
 	// walk area
-
-	walk_area_glb_str := must(toml.get_string(level_table, "walk_area_glb"))
-	walk_area_glb_cstr := strings.clone_to_cstring(walk_area_glb_str)
-	walk_area := r.LoadModel(walk_area_glb_cstr)
-	delete(walk_area_glb_cstr)
-
+	// TODO dont load walk area separately
+	walk_area_glb_path := must(toml.get_string(level_table, "walk_area_glb"))
+	walk_area := r.LoadModel(strings.clone_to_cstring(walk_area_glb_path))
 
 	walk_area_tris: [dynamic]tri3
-	extract_tris(&walk_area, &walk_area_tris)
-	// assert(len(walk_area_tris) > 0)
+	extract_tris(&walk_area_tris, &walk_area)
 
 	// interactables
 
 	interactables: [dynamic]Interactable
 
-	interactables_table := must(toml.get_list(level_table, "interactables"))
-	for intr in interactables_table {
-		intr_fields_table := intr.(^toml.Table)
-		intr_name_str := must(toml.get_string(intr_fields_table, "name"))
-		intr_type, ok := string_to_interactable(
-			must(toml.get_string(intr_fields_table, "type")),
-		); assert(ok)
-		glb_toml_cstr := strings.clone_to_cstring(must(toml.get_string(intr_fields_table, "glb")))
-		data_table := must(toml.get_table(intr_fields_table, "data"))
-
-		intr_data: Interactable_Data_Union
-
-		switch intr_type {
-		case .None:
-		case .Door:
-			intr_data = Door_Data {
-				connected_level_name = must(toml.get_string(data_table, "connected_lvl_name")),
+	room_glb_json := get_json_chunk_from_glb(room_glb_path)
+	defer json.destroy_value(room_glb_json)
+	for node in room_glb_json.(json.Object)["nodes"].(json.Array) {
+		name_val := node.(json.Object)["name"]
+		if name_val != nil {
+			name := name_val.(json.String)
+			is_interactable := strings.contains(strings.to_lower(name), "interactable")
+			if is_interactable {
+				intr := parse_interactable_from_json(node.(json.Object))
+				append(&interactables, intr)
 			}
-		case .Dialogue:
-		case:
 		}
-
-		append(
-			&interactables,
-			Interactable {
-				name = intr_name_str,
-				type = intr_type,
-				model = r.LoadModel(glb_toml_cstr),
-				data = intr_data,
-			},
-		)
-		delete(glb_toml_cstr)
 	}
 
 	// custom props
 
 	assert(main_actor.initialised, "actor must be initialised before placing it into a room")
-	custom_props := load_custom_props_from_glb(room_glb_str)
+	custom_props := load_custom_props_from_glb(room_glb_path)
 
 
 	level := Level {
 		name = room_name,
 		cam = r.Camera3D {
-			position = cam_pos,
-			target = cam_target,
+			position = vec3{0, 4, 10},
+			target = vec3{0, 0, -10},
 			up = UP,
 			fovy = FOV_DEG / 2,
 			projection = .PERSPECTIVE,
@@ -153,6 +101,51 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	}
 
 	return level
+}
+
+parse_interactable_from_json :: proc(node: json.Object) -> Interactable {
+	pos := parse_vec3_from_json(node, "translation")
+	custom_props := node["extras"].(json.Object)
+	data: Interactable_Data_Union
+	if custom_props != nil {
+		data = parse_interactable_type_from_json(custom_props)
+	}
+
+	return Interactable {
+		name = node["name"].(json.String),
+		pos = pos,
+		mesh_index = i32(node["mesh"].(json.Integer)),
+		data = data,
+	}
+}
+
+parse_interactable_type_from_json :: proc(node: json.Object) -> Interactable_Data_Union {
+	type_str, has_type := node["type"].(json.String)
+	if !has_type {return nil}
+	switch type_str {
+	case "door":
+		connected := node["connected_level"].(json.String)
+		return Door_Data{connected_level_name = connected}
+	case "dialogue":
+		return Dialogue_Data{}
+	}
+	return nil
+}
+
+parse_vec3_from_json :: proc(node: json.Object, key: string) -> vec3 {
+	tr := node["translation"]
+	vector: vec3
+	if tr != nil {
+		for i in 0 ..< 3 {
+			#partial switch v in tr.(json.Array)[i] {
+			case json.Float:
+				vector[i] = f32(v)
+			case json.Integer:
+				vector[i] = f32(v)
+			}
+		}
+	}
+	return vector
 }
 
 destroy_level :: proc() {
@@ -185,4 +178,99 @@ cur_level :: proc() -> ^Level {
 	}
 
 	return level_ptr
+}
+
+Custom_Properties :: struct {
+	actors_positions: [dynamic]Actor_Placement,
+}
+
+load_custom_props_from_glb :: proc(glb_path: string) -> Custom_Properties {
+	json_data := get_json_chunk_from_glb(glb_path)
+	defer json.destroy_value(json_data)
+
+	actors_placements: [dynamic]Actor_Placement
+
+	for node in json_data.(json.Object)["nodes"].(json.Array) {
+		// shouldnt use this. just load levels with characters placed
+		fill_actor_placements(&actors_placements, node, "spawn_pos")
+	}
+
+	// print(actors_placements)
+
+	aps_mock: [dynamic]Actor_Placement
+	append(&aps_mock, Actor_Placement{pos = vec3{1.5, 0, 2.0}, yaw = 0})
+
+	// return Custom_Properties{actor_pos = transl, actor_yaw = yaw}
+	return Custom_Properties{actors_positions = aps_mock}
+}
+
+// shouldnt use this. just load levels with characters placed
+@(private = "file")
+fill_actor_placements :: proc(
+	actors_placements_to_fill: ^[dynamic]Actor_Placement,
+	node: json.Value,
+	value: string,
+) {
+	value_ := strings.to_lower(value)
+	name_value := node.(json.Object)["name"].(json.String)
+	name_value_ := strings.to_lower(name_value)
+	if strings.contains(name_value, value_) {
+		ap: Actor_Placement
+
+		tr := node.(json.Object)["translation"]
+		if tr != nil {
+			for i in 0 ..< 3 {
+				#partial switch v in tr.(json.Array)[i] {
+				case json.Float:
+					ap.pos[i] = f32(v)
+				case json.Integer:
+					ap.pos[i] = f32(v)
+				}
+			}
+		}
+
+		// glb uses quaternions for rotations: "rotation":[0,0.7071068286895752,0,0.7071068286895752],
+		rot_val := node.(json.Object)["rotation"]
+		quat: [4]f32
+		if rot_val != nil {
+			for i in 0 ..< 4 {
+				#partial switch v in rot_val.(json.Array)[i] {
+				case json.Float:
+					quat[i] = f32(v)
+				case json.Integer:
+					quat[i] = f32(v)
+				}
+			}
+		}
+
+		ap.yaw = math.atan2(
+			2 * (quat.w * quat.y + quat.x * quat.z),
+			1 - 2 * (quat.x * quat.x + quat.y * quat.y),
+		)
+
+		append(actors_placements_to_fill, ap)
+	}
+}
+
+
+get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
+	data, ok := os.read_entire_file(glb_path)
+	assert(ok, "couldnt read file")
+	defer delete(data)
+
+	// 4 bytes "glTF", 4 bytes version, 4 bytes glb length, 4 bytes json chunk length, 4 bytes "JSON". each symbol is 1 byte
+
+	// Cast a slice of bytes directly to a slice of u32, then take the first element
+	chunk_length := mem.reinterpret_copy(u32, raw_data(data[12:16]))
+	// chunk_type: u32 = mem.slice_data_cast([]u32, data[16:20])[0]
+
+	res, err := strings.clone_from_bytes(data[16:20])
+	assert(res == "JSON" && err == .None)
+
+	json_data := data[20:(20 + chunk_length)]
+
+	parsed, parsed_err := json.parse(json_data, json.DEFAULT_SPECIFICATION, parse_integers = true)
+	assert(parsed_err == .None)
+
+	return parsed
 }

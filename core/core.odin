@@ -61,10 +61,10 @@ main :: proc() {
 	fxaa_intensity_loc = r.GetShaderLocation(fxaa_shader, "intensity")
 	r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
 
-	err1: toml.Error
-	game_config, err1 = toml.parse_data(game_config_data)
+	err: toml.Error
+	game_config, err = toml.parse_data(game_config_data)
 	// game_config, err1 = toml.parse_file("config.toml")
-	assert(err1.type == .None, fmt.enum_value_to_string(err1.type) or_else "an error")
+	assert(err.type == .None, fmt.enum_value_to_string(err.type) or_else "an error")
 
 	font = r.LoadFont("assets/fonts/centurygothic/centurygothic_bold.ttf")
 	r.SetTextureFilter(font.texture, .BILINEAR)

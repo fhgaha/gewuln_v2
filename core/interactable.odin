@@ -21,9 +21,12 @@ Interactable_Data_Union :: union {
 
 Interactable :: struct {
 	name:  string,
-	type:  Interactable_Type,
-	model: r.Model,
+	pos:   vec3,
+	mesh_index: i32,
 	data:  Interactable_Data_Union,
+	
+	// TODO remvoe
+	model: r.Model,
 }
 
 @(private = "file")
@@ -48,7 +51,7 @@ interact :: proc() {
 	}
 }
 
-string_to_interactable :: proc(str: string) -> (Interactable_Type, bool) {
+string_to_interactable_type :: proc(str: string) -> (Interactable_Type, bool) {
 	for entry in Interactables_Naming_Table {
 		if entry.str == str {
 			return entry.type, true
