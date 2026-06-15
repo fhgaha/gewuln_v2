@@ -20,13 +20,10 @@ Interactable_Data_Union :: union {
 }
 
 Interactable :: struct {
-	name:  string,
-	pos:   vec3,
+	name:       string,
+	pos:        vec3,
 	mesh_index: i32,
-	data:  Interactable_Data_Union,
-
-	// TODO remvoe
-	model: r.Model,
+	data:       Interactable_Data_Union,
 }
 
 @(private = "file")
@@ -61,13 +58,13 @@ string_to_interactable_type :: proc(str: string) -> (Interactable_Type, bool) {
 }
 
 get_interactable_center :: proc(interactable: ^Interactable) -> vec3 {
-	bb := r.GetModelBoundingBox(interactable.model)
+	bb := r.GetMeshBoundingBox(cur_level().room.meshes[interactable.mesh_index])
 	return (bb.min + bb.max) * 0.5
 }
 
 is_interactable_mesh :: proc(interactables: []Interactable, mesh_index: i32) -> bool {
-    for intr in interactables {
-        if intr.mesh_index == mesh_index do return true
-    }
-    return false
+	for intr in interactables {
+		if intr.mesh_index == mesh_index do return true
+	}
+	return false
 }

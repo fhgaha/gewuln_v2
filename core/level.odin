@@ -198,6 +198,10 @@ cur_level :: proc() -> ^Level {
 	return level_ptr
 }
 
+get_interactable_mesh :: proc(interactable: ^Interactable) -> r.Mesh {
+	return cur_level().room.meshes[interactable.mesh_index]
+}
+
 Custom_Properties :: struct {
 	actors_positions: [dynamic]Actor_Placement,
 }

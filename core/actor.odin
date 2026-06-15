@@ -128,7 +128,7 @@ actor_update_pos :: proc(actor: ^Actor, delta_pos: vec3) {
 	actor.pos += delta_pos
 	actor.bounding_box.min += delta_pos
 	actor.bounding_box.max += delta_pos
-	
+
 	if actor.pos != old_pos && .print_debug_info in flags {
 		fmt.println(actor.name, ": pos =", actor.pos)
 	}
@@ -284,7 +284,8 @@ get_interactable_colliding_actor :: proc(
 	found: bool,
 ) {
 	for &intr in interactables {
-		col := r.CheckCollisionBoxes(actor.bounding_box, r.GetModelBoundingBox(intr.model))
+		mesh := get_interactable_mesh(&intr)
+		col := r.CheckCollisionBoxes(actor.bounding_box, r.GetMeshBoundingBox(mesh))
 		if (col) {
 			append(&colliding, intr)
 		}
