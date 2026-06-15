@@ -1,15 +1,20 @@
 first_level_name = "test_room"
 # first_level_name = "another_test_room"
 
-[main_actor]
+[[actors]]
 name     = "mona"
 model    = "assets/models/mona_sax/export/glb/mona.glb"
 collider = "assets/models/mona_sax/export/glb/collider.glb"
 
-[[levels]]
-name          = "test_room"
-room_glb      = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
+[[actors]]
+name    = "cleaner_a"
+model   = "assets/models/cleaner_a/export/cleaner_a.glb"
+
 
 [[levels]]
-name          = "another_test_room"
-room_glb      = "assets/models/another_test_room/export/glb/room.glb"
+name     = "test_room"
+room_glb = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
+
+[[levels]]
+name     = "another_test_room"
+room_glb = "assets/models/another_test_room/export/glb/room.glb"

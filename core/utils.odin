@@ -74,6 +74,10 @@ yaw_from_transform :: proc(m: r.Matrix) -> f32 {
 	return f32(yaw)
 }
 
+yaw_from_quat :: proc(q: r.Quaternion) -> f32 {
+	return yaw_from_transform(r.QuaternionToMatrix(q))
+}
+
 square_points_2d :: proc(min, max: vec2) -> [4]vec2 {
 	return {
 		min, // bottom-left

@@ -20,10 +20,6 @@ Game_State :: struct {
 	levels:         map[string]Level,
 }
 
-Actors_Names :: enum {
-	mona,
-}
-
 game_config_data := #load("../config.toml")
 game_config: ^toml.Table
 
@@ -31,8 +27,8 @@ flags: bit_set[Flags]
 input: Input_State
 font: r.Font
 game_state: Game_State
-main_actor: Actor
-actors: [Actors_Names]Actor // all actors including main actor
+main_actor: ^Actor
+actors: map[string]Actor // all actors including main actor
 accumulated_time: f32
 fxaa_intensity: f32 = 0.3
 
@@ -71,20 +67,20 @@ main :: proc() {
 	defer r.UnloadFont(font)
 
 
-	main_actor = create_actor_from_toml(game_config)
+	// main_actor = create_actor_from_toml(game_config)
+	actors := create_actors_from_toml(game_config)
+	// print_pretty(actors)
+	main_actor = &actors["mona"]
+	
 	game_state.levels, game_state.cur_level_name = create_levels(game_config)
 
-
-	actor_update_pos(&main_actor, delta_pos = cur_level().actors_places[0].pos)
-	actor_update_yaw(&main_actor, cur_level().actors_places[0].yaw)
-
-	actor_update_pos(&main_actor, delta_pos = vec3{-4, 0, 4}) // why this shit works not as delta anymore but as a point where to be??
-	actor_update_yaw(&main_actor, 0)
+	actor_update_pos(main_actor, cur_level().spawn_positions[0].pos)
+	actor_update_yaw(main_actor, cur_level().spawn_positions[0].yaw)
 
 
 	// testing
 
-	_, __ := get_interactable_colliding_actor(cur_level().interactables[:], &main_actor)
+	// _, __ := get_interactable_colliding_actor(cur_level().interactables[:], &main_actor)
 
 	render_target = r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	// r.SetTextureFilter(render_target.texture, .BILINEAR)
@@ -98,6 +94,13 @@ main :: proc() {
 			fmt.printf("Found neck bone at index: %d\n", i)
 			main_actor.neck_bone_index = i
 		}
+	}
+
+	for spawn in cur_level().spawn_positions {
+		// actor := find_actor_by_name(spawn.actor_name)
+		// actors
+		// actor_update_pos(actor, spawn.pos)
+		// actor_update_yaw(actor, spawn.yaw)
 	}
 
 
@@ -152,7 +155,7 @@ update :: proc() {
 		}
 
 		//update
-		actor_anim_update(&main_actor)
+		actor_anim_update(main_actor)
 		update_cam(DT)
 
 		accumulated_time -= DT
@@ -198,10 +201,11 @@ render_3d_scene :: proc() {
 
 	r.BeginMode3D(cur_level().cam)
 	{
-		// r.DrawModel(cur_level().room, vec3{0, 0, 0}, 1, r.GRAY)
+		// draw level
 		for i in 0 ..< cur_level().room.meshCount {
 			if is_interactable_mesh(cur_level().interactables[:], i) do continue
-			dont_draw_walk_area := cur_level().walk_area_mesh_idx != -1 && i32(i) == cur_level().walk_area_mesh_idx
+			dont_draw_walk_area :=
+				cur_level().walk_area_mesh_idx != -1 && i32(i) == cur_level().walk_area_mesh_idx
 			if dont_draw_walk_area do continue
 			r.DrawMesh(
 				cur_level().room.meshes[i],
@@ -212,7 +216,6 @@ render_3d_scene :: proc() {
 
 
 		r.DrawModel(main_actor.model, main_actor.pos, 1, r.WHITE)
-		// r.DrawModelWires(actor.model, actor.pos, 1, r.GREEN)
 
 		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
 

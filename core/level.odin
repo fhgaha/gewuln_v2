@@ -6,7 +6,6 @@ import "core:fmt"
 import "core:math"
 import "core:mem"
 import "core:os"
-import "core:slice"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -18,13 +17,16 @@ Level :: struct {
 	walk_area_mesh_idx:        i32,
 	walk_area_tris:            [dynamic]tri3,
 	interactables:             [dynamic]Interactable,
-	actors_places:             [dynamic]Actor_Placement,
-	intersected_interactables: [dynamic]Interactable, //currently colliding with main actor interactables
+	spawn_positions:           [dynamic]Actor_Spawn_Placement,
+
+	//currently colliding with main actor interactables
+	intersected_interactables: [dynamic]Interactable,
 }
 
-Actor_Placement :: struct {
-	pos: vec3,
-	yaw: f32,
+Actor_Spawn_Placement :: struct {
+	actor_name: string,
+	pos:        vec3,
+	yaw:        f32,
 }
 
 create_levels :: proc(
@@ -53,11 +55,13 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	room_glb_path := must(toml.get_string(level_table, "room_glb"))
 	room := r.LoadModel(strings.clone_to_cstring(room_glb_path))
 
-	// interactables
+
+	// parse blender objects
 
 	interactables: [dynamic]Interactable
 	walk_area_mesh_idx: i32 = -1
 	walk_area_tris: [dynamic]tri3
+	spawn_positions: [dynamic]Actor_Spawn_Placement
 
 	room_glb_json := get_json_chunk_from_glb(room_glb_path)
 	defer json.destroy_value(room_glb_json)
@@ -65,12 +69,12 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 		name_val := node.(json.Object)["name"]
 		if name_val != nil {
 			name := strings.to_lower(name_val.(json.String))
+
 			is_interactable := strings.contains(name, "interactable")
 			if is_interactable {
 				intr := parse_interactable_from_json(node.(json.Object))
 				append(&interactables, intr)
 			}
-			// print_pretty(name)
 
 			is_walk_area := strings.contains(name, "walk_area")
 			if is_walk_area {
@@ -78,6 +82,20 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 				walk_area_mesh_idx = i32(mesh_idx_raw)
 				extract_tris_from_mesh(&room.meshes[walk_area_mesh_idx], &walk_area_tris)
 			}
+
+			is_spawn_pos := strings.contains(name, "spawn_pos")
+			if is_spawn_pos {
+				pos := parse_vec3_from_json(node.(json.Object), "translation")
+				rot := parse_quat_from_json(node.(json.Object), "rotation")
+				yaw := yaw_from_quat(rot)
+				extras := node.(json.Object)["actor_name"]
+				actor_name: string
+				if extras != nil {
+					actor_name = extras.(json.String)
+				}
+				append(&spawn_positions, Actor_Spawn_Placement{actor_name, pos, yaw})
+			}
+
 		}
 	}
 	// set mesh idx for intereactables
@@ -97,9 +115,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	}
 
 	// custom props
-	// should be proc probably
 	assert(main_actor.initialised, "actor must be initialised before placing it into a room")
-	custom_props := load_custom_props_from_glb(room_glb_path)
 
 
 	level := Level {
@@ -115,7 +131,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 		walk_area_mesh_idx = walk_area_mesh_idx,
 		walk_area_tris = walk_area_tris,
 		interactables = interactables,
-		actors_places = custom_props.actors_positions,
+		spawn_positions = spawn_positions,
 	}
 
 	return level
@@ -150,6 +166,7 @@ parse_interactable_type_from_json :: proc(node: json.Object) -> Interactable_Dat
 	return nil
 }
 
+
 parse_vec3_from_json :: proc(node: json.Object, key: string) -> vec3 {
 	tr := node["translation"]
 	vector: vec3
@@ -166,13 +183,43 @@ parse_vec3_from_json :: proc(node: json.Object, key: string) -> vec3 {
 	return vector
 }
 
+parse_quat_from_json :: proc(node: json.Object, key: string) -> r.Quaternion {
+	tr := node[key]
+	quat: r.Quaternion = r.Quaternion(1)
+	if tr != nil {
+		arr := tr.(json.Array)
+		for i in 0 ..< 4 {
+			val := arr[i]
+			v: f32
+			#partial switch w in val {
+			case json.Float:
+				v = f32(w)
+			case json.Integer:
+				v = f32(w)
+			}
+			switch i {
+			case 0:
+				quat.x = v
+			case 1:
+				quat.y = v
+			case 2:
+				quat.z = v
+			case 3:
+				quat.w = v
+			}
+		}
+	}
+	return quat
+}
+
+
 destroy_level :: proc() {
 
 }
 
 load_level :: proc(lvl: ^Level) {
 	// do this once at start in case actor appeared inside of interactable
-	_, __ := get_interactable_colliding_actor(cur_level().interactables[:], &main_actor)
+	_, __ := get_interactable_colliding_actor(cur_level().interactables[:], main_actor)
 }
 
 unload_level :: proc(lvl: ^Level) {
@@ -202,34 +249,10 @@ get_interactable_mesh :: proc(interactable: ^Interactable) -> r.Mesh {
 	return cur_level().room.meshes[interactable.mesh_index]
 }
 
-Custom_Properties :: struct {
-	actors_positions: [dynamic]Actor_Placement,
-}
-
-load_custom_props_from_glb :: proc(glb_path: string) -> Custom_Properties {
-	json_data := get_json_chunk_from_glb(glb_path)
-	defer json.destroy_value(json_data)
-
-	actors_placements: [dynamic]Actor_Placement
-
-	for node in json_data.(json.Object)["nodes"].(json.Array) {
-		// shouldnt use this. just load levels with characters placed
-		fill_actor_placements(&actors_placements, node, "spawn_pos")
-	}
-
-	// print(actors_placements)
-
-	aps_mock: [dynamic]Actor_Placement
-	append(&aps_mock, Actor_Placement{pos = vec3{1.5, 0, 2.0}, yaw = 0})
-
-	// return Custom_Properties{actor_pos = transl, actor_yaw = yaw}
-	return Custom_Properties{actors_positions = aps_mock}
-}
-
 // shouldnt use this. just load levels with characters placed
 @(private = "file")
 fill_actor_placements :: proc(
-	actors_placements_to_fill: ^[dynamic]Actor_Placement,
+	actors_placements_to_fill: ^[dynamic]Actor_Spawn_Placement,
 	node: json.Value,
 	value: string,
 ) {
@@ -237,7 +260,7 @@ fill_actor_placements :: proc(
 	name_value := node.(json.Object)["name"].(json.String)
 	name_value_ := strings.to_lower(name_value)
 	if strings.contains(name_value, value_) {
-		ap: Actor_Placement
+		ap: Actor_Spawn_Placement
 
 		tr := node.(json.Object)["translation"]
 		if tr != nil {

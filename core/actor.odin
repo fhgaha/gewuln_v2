@@ -41,17 +41,23 @@ Input_State :: struct {
 	wants_interact: bool,
 }
 
-create_actor_from_toml :: proc(section: ^toml.Table) -> Actor {
-	actor_name := toml.get_string_panic(section, "main_actor", "name")
-	model_path := toml.get_string_panic(section, "main_actor", "model")
-	collider_path := toml.get_string_panic(section, "main_actor", "collider")
-	actor, ok := create_actor(
-		actor_name,
-		strings.clone_to_cstring(model_path),
-		strings.clone_to_cstring(collider_path),
-	)
-	assert(ok)
-	return actor
+create_actors_from_toml :: proc(section: ^toml.Table) -> (actors: map[string]Actor) {
+	for a in section["actors"].(^toml.List) {
+		actor_name := toml.get_string_panic(a.(^toml.Table), "name")
+		model_path := toml.get_string_panic(a.(^toml.Table), "model")
+		collider_path, coll_ok := toml.get_string(a.(^toml.Table), "collider")
+
+		actor, ok := create_actor(
+			actor_name,
+			strings.clone_to_cstring(model_path),
+			strings.clone_to_cstring(collider_path),
+		)
+		if !ok do panic(fmt.tprintf("couldnt create actor: %v", actor))
+
+
+		actors[actor_name] = actor
+	}
+	return
 }
 
 create_actor :: proc(
@@ -67,10 +73,15 @@ create_actor :: proc(
 		return {}, false
 	}
 
-	actor_coll_model := r.LoadModel(collider_path)
-	if !r.IsModelValid(actor_coll_model) {
-		r.UnloadModel(actor_model)
-		return {}, false
+	has_collider: bool
+	actor_coll_model: r.Model
+	if collider_path != "" {
+		actor_coll_model = r.LoadModel(collider_path)
+		has_collider = true
+		if !r.IsModelValid(actor_coll_model) {
+			r.UnloadModel(actor_model)
+			return {}, false
+		}
 	}
 
 	// Load animations
@@ -123,11 +134,11 @@ actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 	return
 }
 
-actor_update_pos :: proc(actor: ^Actor, delta_pos: vec3) {
+actor_update_pos :: proc(actor: ^Actor, new_pos: vec3) {
 	old_pos := actor.pos
-	actor.pos += delta_pos
-	actor.bounding_box.min += delta_pos
-	actor.bounding_box.max += delta_pos
+	actor.pos = new_pos
+	actor.bounding_box.min += new_pos - old_pos
+	actor.bounding_box.max += new_pos - old_pos
 
 	if actor.pos != old_pos && .print_debug_info in flags {
 		fmt.println(actor.name, ": pos =", actor.pos)
@@ -155,7 +166,7 @@ actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
 
 handle_idle :: proc(dt: f32) {
 	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
-	actor_update_yaw(&main_actor, yaw)
+	actor_update_yaw(main_actor, yaw)
 
 	play_anim(&main_actor.animator, .IDLE)
 
@@ -164,7 +175,7 @@ handle_idle :: proc(dt: f32) {
 
 	interact_trg, interact_tgr_found := get_interactable_colliding_actor(
 		cur_level().interactables[:],
-		&main_actor,
+		main_actor,
 	)
 
 	interact_cond := input.wants_interact && interact_tgr_found
@@ -181,19 +192,19 @@ handle_idle :: proc(dt: f32) {
 
 handle_walk :: proc(dt: f32) {
 	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
-	actor_update_yaw(&main_actor, yaw)
+	actor_update_yaw(main_actor, yaw)
 
 	play_anim(&main_actor.animator, .WALK)
 
-	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(&main_actor)
+	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(main_actor)
 	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, cur_level().walk_area_tris[:])
-	actor_update_pos(&main_actor, dpos)
+	actor_update_pos(main_actor, main_actor.pos + dpos)
 
 
 	// state transitions
 	interact_trg, interact_trg_found := get_interactable_colliding_actor(
 		cur_level().interactables[:],
-		&main_actor,
+		main_actor,
 	)
 
 	interact_cond := interact_trg_found && input.wants_interact
