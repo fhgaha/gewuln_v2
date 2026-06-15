@@ -15,7 +15,7 @@ Level :: struct {
 	name:                      string,
 	cam:                       r.Camera3D,
 	room:                      r.Model,
-	walk_area:                 r.Model,
+	walk_area_mesh_idx:        i32,
 	walk_area_tris:            [dynamic]tri3,
 	interactables:             [dynamic]Interactable,
 	actors_places:             [dynamic]Actor_Placement,
@@ -53,28 +53,30 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	room_glb_path := must(toml.get_string(level_table, "room_glb"))
 	room := r.LoadModel(strings.clone_to_cstring(room_glb_path))
 
-	// walk area
-	// TODO dont load walk area separately
-	walk_area_glb_path := must(toml.get_string(level_table, "walk_area_glb"))
-	walk_area := r.LoadModel(strings.clone_to_cstring(walk_area_glb_path))
-
-	walk_area_tris: [dynamic]tri3
-	extract_tris(&walk_area_tris, &walk_area)
-
 	// interactables
 
 	interactables: [dynamic]Interactable
+	walk_area_mesh_idx: i32 = -1
+	walk_area_tris: [dynamic]tri3
 
 	room_glb_json := get_json_chunk_from_glb(room_glb_path)
 	defer json.destroy_value(room_glb_json)
 	for node in room_glb_json.(json.Object)["nodes"].(json.Array) {
 		name_val := node.(json.Object)["name"]
 		if name_val != nil {
-			name := name_val.(json.String)
-			is_interactable := strings.contains(strings.to_lower(name), "interactable")
+			name := strings.to_lower(name_val.(json.String))
+			is_interactable := strings.contains(name, "interactable")
 			if is_interactable {
 				intr := parse_interactable_from_json(node.(json.Object))
 				append(&interactables, intr)
+			}
+			// print_pretty(name)
+
+			is_walk_area := strings.contains(name, "walk_area")
+			if is_walk_area {
+				mesh_idx_raw := node.(json.Object)["mesh"].(json.Integer)
+				walk_area_mesh_idx = i32(mesh_idx_raw)
+				extract_tris_from_mesh(&room.meshes[walk_area_mesh_idx], &walk_area_tris)
 			}
 		}
 	}
@@ -92,13 +94,10 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	}
 	for intr in interactables {
 		assert(intr.mesh_index != -1, "interactable not matched to any mesh")
-
-		// mat_idx := room.meshMaterial[intr.mesh_index]
-		// room.materials[mat_idx].maps[r.MaterialMapIndex.ALBEDO].color.a = 0
 	}
 
 	// custom props
-
+	// should be proc probably
 	assert(main_actor.initialised, "actor must be initialised before placing it into a room")
 	custom_props := load_custom_props_from_glb(room_glb_path)
 
@@ -113,7 +112,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 			projection = .PERSPECTIVE,
 		},
 		room = room,
-		walk_area = walk_area,
+		walk_area_mesh_idx = walk_area_mesh_idx,
 		walk_area_tris = walk_area_tris,
 		interactables = interactables,
 		actors_places = custom_props.actors_positions,

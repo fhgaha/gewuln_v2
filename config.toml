@@ -9,9 +9,7 @@ collider = "assets/models/mona_sax/export/glb/collider.glb"
 [[levels]]
 name          = "test_room"
 room_glb      = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
-# walk_area_glb = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
 
 [[levels]]
 name          = "another_test_room"
 room_glb      = "assets/models/another_test_room/export/glb/room.glb"
-# walk_area_glb = "assets/models/another_test_room/export/glb/walk_area.glb"

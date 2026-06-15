@@ -201,6 +201,8 @@ render_3d_scene :: proc() {
 		// r.DrawModel(cur_level().room, vec3{0, 0, 0}, 1, r.GRAY)
 		for i in 0 ..< cur_level().room.meshCount {
 			if is_interactable_mesh(cur_level().interactables[:], i) do continue
+			dont_draw_walk_area := cur_level().walk_area_mesh_idx != -1 && i32(i) == cur_level().walk_area_mesh_idx
+			if dont_draw_walk_area do continue
 			r.DrawMesh(
 				cur_level().room.meshes[i],
 				cur_level().room.materials[cur_level().room.meshMaterial[i]],
@@ -257,10 +259,11 @@ draw_fps :: proc() {
 }
 
 draw_walking_area :: proc() {
+	color := r.SKYBLUE
 	for &tr in cur_level().walk_area_tris {
-		r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
-		r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
-		r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)
+		r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, color)
+		r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, color)
+		r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, color)
 	}
 }
 
