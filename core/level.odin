@@ -148,10 +148,10 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 
 parse_interactable_from_json :: proc(node: json.Object) -> Interactable {
 	pos := parse_vec3_from_json(node, "translation")
-	custom_props := node["extras"].(json.Object)
+	custom_props := node["extras"]
 	data: Interactable_Data_Union
 	if custom_props != nil {
-		data = parse_interactable_type_from_json(custom_props)
+		data = parse_interactable_type_from_json(custom_props.(json.Object))
 	}
 
 	return Interactable {

@@ -238,7 +238,7 @@ draw_fps :: proc() {
 		font,
 		text = r.TextFormat("FPS: %d", r.GetFPS()),
 		position = 0,
-		fontSize = 36,
+		fontSize = 24,
 		spacing = 0,
 		tint = r.ORANGE,
 	)
