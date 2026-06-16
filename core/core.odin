@@ -28,10 +28,8 @@ input: Input_State
 font: r.Font
 game_state: Game_State
 main_actor: ^Actor
-actors: map[string]Actor // all actors including main actor
 accumulated_time: f32
 fxaa_intensity: f32 = 0.3
-
 render_target: r.RenderTexture2D
 fxaa_shader: r.Shader
 fxaa_intensity_loc: i32
@@ -39,8 +37,6 @@ fxaa_intensity_loc: i32
 debug_lines: [dynamic]DebugLine
 
 main :: proc() {
-	flags = {.lock_cursor, .camera_debug, .show_gizmos, .print_debug_info}
-
 	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_RESIZABLE})
 
 	r.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "gewuln")
@@ -57,40 +53,16 @@ main :: proc() {
 	fxaa_intensity_loc = r.GetShaderLocation(fxaa_shader, "intensity")
 	r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
 
-	err: toml.Error
-	game_config, err = toml.parse_data(game_config_data)
-	// game_config, err1 = toml.parse_file("config.toml")
-	assert(err.type == .None, fmt.enum_value_to_string(err.type) or_else "an error")
-
 	font = r.LoadFont("assets/fonts/centurygothic/centurygothic_bold.ttf")
 	r.SetTextureFilter(font.texture, .BILINEAR)
 	defer r.UnloadFont(font)
-
-
-	actors = create_actors_from_toml(game_config)
-	main_actor = &actors["mona"]
-	game_state.levels, game_state.cur_level_name = create_levels(game_config)
-
-
-
-	// testing
-
-	// _, __ := get_interactable_colliding_actor(cur_level().interactables[:], &main_actor)
 
 	render_target = r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	// r.SetTextureFilter(render_target.texture, .BILINEAR)
 	defer r.UnloadRenderTexture(render_target)
 
 
-	// searching neck bone index
-	for i in 0 ..< main_actor.model.boneCount {
-		bone_name := string(cast(cstring)&main_actor.model.bones[i].name[0])
-		if strings.contains(strings.to_lower(bone_name), "neck") {
-			fmt.printf("Found neck bone at index: %d\n", i)
-			main_actor.neck_bone_index = i
-		}
-	}
-
+	setup()
 
 	for !r.WindowShouldClose() {
 		update()
@@ -102,9 +74,29 @@ main :: proc() {
 	r.CloseWindow()
 }
 
+setup :: proc() {
+	flags = {.lock_cursor, .camera_debug, .show_gizmos, .print_debug_info}
+
+	err: toml.Error
+	game_config, err = toml.parse_data(game_config_data)
+	assert(err.type == .None, fmt.enum_value_to_string(err.type) or_else "an error")
+
+	game_state.levels, game_state.cur_level_name = create_levels(game_config)
+	main_actor = &game_state.levels["test_room"].actors["mona"]
+
+
+	// searching neck bone index
+	for i in 0 ..< main_actor.model.boneCount {
+		bone_name := string(cast(cstring)&main_actor.model.bones[i].name[0])
+		if strings.contains(strings.to_lower(bone_name), "neck") {
+			fmt.printf("Found neck bone at index: %d\n", i)
+			main_actor.neck_bone_index = i
+		}
+	}
+}
+
 update :: proc() {
 	//fixed timestep (the "accumulator" pattern)
-	max_dt :: 0.25
 	dt := r.Clamp(r.GetFrameTime(), 0, max_dt)
 	accumulated_time += dt
 
@@ -143,7 +135,9 @@ update :: proc() {
 		}
 
 		//update
-		actor_anim_update(main_actor)
+		for k, &v in cur_level().actors {
+			actor_anim_update(&v)
+		}
 		update_cam(DT)
 
 		accumulated_time -= DT
@@ -202,8 +196,9 @@ render_3d_scene :: proc() {
 			)
 		}
 
-
-		r.DrawModel(main_actor.model, main_actor.pos, 1, r.WHITE)
+		for k, &v in cur_level().actors {
+			r.DrawModel(v.model, v.pos, 1, r.WHITE)
+		}
 
 		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
 

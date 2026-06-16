@@ -13,14 +13,14 @@ import r "vendor:raylib"
 Level :: struct {
 	name:                      string,
 	cam:                       r.Camera3D,
+	//cameras:                   [dynamic]r.Camera3D,
 	room:                      r.Model,
 	walk_area_mesh_idx:        i32,
 	walk_area_tris:            [dynamic]tri3,
 	interactables:             [dynamic]Interactable,
 	spawn_positions:           [dynamic]Actor_Spawn_Placement,
-
-	//currently colliding with main actor interactables
-	intersected_interactables: [dynamic]Interactable,
+	intersected_interactables: [dynamic]Interactable, //intersected by main actor
+	actors:                    map[string]Actor, // all actors including main actor
 }
 
 Actor_Spawn_Placement :: struct {
@@ -35,8 +35,6 @@ create_levels :: proc(
 	levels: map[string]Level,
 	first_level_name: string,
 ) {
-	assert(len(actors) > 0, "actorы must be initialised before placing it into a room")
-
 	levels_table: ^toml.List
 	ok: bool
 	levels_table, ok = toml.get_list(section, "levels"); assert(ok)
@@ -60,10 +58,12 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 
 	// parse blender objects
 
+
 	interactables: [dynamic]Interactable
 	walk_area_mesh_idx: i32 = -1
 	walk_area_tris: [dynamic]tri3
 	spawn_positions: [dynamic]Actor_Spawn_Placement
+	actors := create_actors_from_toml(game_config)
 
 	room_glb_json := get_json_chunk_from_glb(room_glb_path)
 	defer json.destroy_value(room_glb_json)
@@ -102,6 +102,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 			}
 		}
 	}
+
 	// set mesh idx for intereactables
 	for i in 0 ..< room.meshCount {
 		m := room.meshes[i]
@@ -139,6 +140,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 		walk_area_tris = walk_area_tris,
 		interactables = interactables,
 		spawn_positions = spawn_positions,
+		actors = actors,
 	}
 
 	return level
