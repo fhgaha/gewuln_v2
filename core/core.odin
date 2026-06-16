@@ -67,15 +67,10 @@ main :: proc() {
 	defer r.UnloadFont(font)
 
 
-	// main_actor = create_actor_from_toml(game_config)
-	actors := create_actors_from_toml(game_config)
-	// print_pretty(actors)
+	actors = create_actors_from_toml(game_config)
 	main_actor = &actors["mona"]
-	
 	game_state.levels, game_state.cur_level_name = create_levels(game_config)
 
-	actor_update_pos(main_actor, cur_level().spawn_positions[0].pos)
-	actor_update_yaw(main_actor, cur_level().spawn_positions[0].yaw)
 
 
 	// testing
@@ -94,13 +89,6 @@ main :: proc() {
 			fmt.printf("Found neck bone at index: %d\n", i)
 			main_actor.neck_bone_index = i
 		}
-	}
-
-	for spawn in cur_level().spawn_positions {
-		// actor := find_actor_by_name(spawn.actor_name)
-		// actors
-		// actor_update_pos(actor, spawn.pos)
-		// actor_update_yaw(actor, spawn.yaw)
 	}
 
 

@@ -53,8 +53,6 @@ create_actors_from_toml :: proc(section: ^toml.Table) -> (actors: map[string]Act
 			strings.clone_to_cstring(collider_path),
 		)
 		if !ok do panic(fmt.tprintf("couldnt create actor: %v", actor))
-
-
 		actors[actor_name] = actor
 	}
 	return
@@ -154,7 +152,8 @@ actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
 	// rot := r.MatrixRotateY(actor.yaw)
 	// transl := r.MatrixTranslate(actor.pos.x, actor.pos.y, actor.pos.z)
 	// actor.model.transform = transl * rot
-	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
+	// just set transform to rotation since raylib in DrawModel multiplies position 
+	// to model's transform
 	actor.model.transform = r.MatrixRotateY(new_yaw)
 
 	if new_yaw != old_yaw && .print_debug_info in flags {

@@ -35,6 +35,8 @@ create_levels :: proc(
 	levels: map[string]Level,
 	first_level_name: string,
 ) {
+	assert(len(actors) > 0, "actorы must be initialised before placing it into a room")
+
 	levels_table: ^toml.List
 	ok: bool
 	levels_table, ok = toml.get_list(section, "levels"); assert(ok)
@@ -88,14 +90,16 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 				pos := parse_vec3_from_json(node.(json.Object), "translation")
 				rot := parse_quat_from_json(node.(json.Object), "rotation")
 				yaw := yaw_from_quat(rot)
-				extras := node.(json.Object)["actor_name"]
+				extras := node.(json.Object)["extras"]
 				actor_name: string
 				if extras != nil {
-					actor_name = extras.(json.String)
+					actor_name_ := extras.(json.Object)["actor_name"]
+					if actor_name_ != nil {
+						actor_name = actor_name_.(json.String)
+					}
 				}
 				append(&spawn_positions, Actor_Spawn_Placement{actor_name, pos, yaw})
 			}
-
 		}
 	}
 	// set mesh idx for intereactables
@@ -114,9 +118,12 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 		assert(intr.mesh_index != -1, "interactable not matched to any mesh")
 	}
 
-	// custom props
-	assert(main_actor.initialised, "actor must be initialised before placing it into a room")
-
+	// print_pretty(spawn_positions)
+	// TODO second level wipes actors?
+	for spawn in spawn_positions {
+		actor_update_pos(&actors[spawn.actor_name], spawn.pos)
+		actor_update_yaw(&actors[spawn.actor_name], spawn.yaw)
+	}
 
 	level := Level {
 		name = room_name,
@@ -296,7 +303,6 @@ fill_actor_placements :: proc(
 		append(actors_placements_to_fill, ap)
 	}
 }
-
 
 get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
 	data, ok := os.read_entire_file(glb_path)
