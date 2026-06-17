@@ -181,9 +181,9 @@ draw :: proc() {
 render_3d_scene :: proc() {
 	r.ClearBackground(DARK)
 
-	r.BeginMode3D(cur_level().cam)
+	r.BeginMode3D(cur_level().cam^)
 	{
-		// draw level
+		// draw level objects
 		for i in 0 ..< cur_level().room.meshCount {
 			if is_interactable_mesh(cur_level().interactables[:], i) do continue
 			dont_draw_walk_area :=
@@ -196,11 +196,10 @@ render_3d_scene :: proc() {
 			)
 		}
 
+		// draw actors
 		for k, &v in cur_level().actors {
 			r.DrawModel(v.model, v.pos, 1, r.WHITE)
 		}
-
-		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
 
 		if .show_gizmos in flags {
 			draw_interactables()
@@ -209,10 +208,9 @@ render_3d_scene :: proc() {
 
 			draw_walking_area()
 			draw_gizmo()
+			draw_cameras()
 			draw_debug_lines()
 		}
-
-
 	}
 	r.EndMode3D()
 }
@@ -233,17 +231,6 @@ draw_gizmo :: proc() {
 	r.DrawCylinderEx(vec3{0, 0, 0}, vec3{0, 0, 1} * dist, 0.02, 0.02, 2, r.BLUE)
 }
 
-draw_fps :: proc() {
-	r.DrawTextEx(
-		font,
-		text = r.TextFormat("FPS: %d", r.GetFPS()),
-		position = 0,
-		fontSize = 24,
-		spacing = 0,
-		tint = r.ORANGE,
-	)
-}
-
 draw_walking_area :: proc() {
 	color := r.SKYBLUE
 	for &tr in cur_level().walk_area_tris {
@@ -258,4 +245,31 @@ draw_debug_lines :: proc() {
 		r.DrawLine3D(l.start, l.end, l.color)
 	}
 	clear(&debug_lines)
+}
+
+draw_fps :: proc() {
+	r.DrawTextEx(
+		font,
+		text = r.TextFormat("FPS: %d", r.GetFPS()),
+		position = 0,
+		fontSize = 24,
+		spacing = 0,
+		tint = r.ORANGE,
+	)
+}
+
+draw_cameras :: proc() {
+	for _, &c in cur_level().cameras {
+		if &c != cur_level().cam {
+			r.DrawCylinderWiresEx(
+				c.position,
+				c.position + r.Vector3Normalize(c.target - c.position),
+				0.02,
+				1,
+				8,
+				r.YELLOW,
+			)
+		}
+	}
+
 }

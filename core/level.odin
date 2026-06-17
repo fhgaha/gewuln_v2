@@ -12,8 +12,8 @@ import r "vendor:raylib"
 
 Level :: struct {
 	name:                      string,
-	cam:                       r.Camera3D,
-	//cameras:                   [dynamic]r.Camera3D,
+	cam:                       ^r.Camera3D,
+	cameras:                   map[string]r.Camera3D,
 	room:                      r.Model,
 	walk_area_mesh_idx:        i32,
 	walk_area_tris:            [dynamic]tri3,
@@ -58,7 +58,8 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 
 	// parse blender objects
 
-
+	cam: ^r.Camera3D
+	cameras: map[string]r.Camera3D
 	interactables: [dynamic]Interactable
 	walk_area_mesh_idx: i32 = -1
 	walk_area_tris: [dynamic]tri3
@@ -71,6 +72,49 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 		name_val := node.(json.Object)["name"]
 		if name_val != nil {
 			name := strings.to_lower(name_val.(json.String))
+
+			is_camera := strings.contains(name, "camera")
+			if is_camera {
+				// map[
+				// 	translation = [
+				// 			3.9683666229248047,
+				// 			9.085062026977539,
+				// 			14.23040771484375,
+				// 	],
+				// 	rotation = [
+				// 			-0.30632132291793823,
+				// 			0.07797134667634964,
+				// 			0.025183893740177155,
+				// 			0.9483952522277832,
+				// 	],
+				// 	camera = 1,
+				// 	extras = map[
+				// 			is_cur = false,
+				// 	],
+				// 	name = "Camera.002",
+				// ],
+
+				translation := parse_vec3_from_json(node.(json.Object), "translation")
+				rotation := parse_quat_from_json(node.(json.Object), "rotation")
+				forward := r.Vector3RotateByQuaternion(BACKWARD, rotation) // BACKWARD = {0, 0, -1}
+				target := translation + forward
+
+				cameras[name] = r.Camera3D {
+					position   = translation,
+					target     = target,
+					up         = UP,
+					fovy       = FOV_DEG / 4,
+					projection = .PERSPECTIVE,
+				}
+
+				extras := node.(json.Object)["extras"]
+				if extras != nil {
+					is_cur := extras.(json.Object)["is_cur"].(json.Boolean)
+					if (is_cur) {
+						cam = &cameras[name]
+					}
+				}
+			}
 
 			is_interactable := strings.contains(name, "interactable")
 			if is_interactable {
@@ -127,20 +171,15 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	}
 
 	level := Level {
-		name = room_name,
-		cam = r.Camera3D {
-			position = vec3{0, 4, 10},
-			target = vec3{0, 0, -10},
-			up = UP,
-			fovy = FOV_DEG / 2,
-			projection = .PERSPECTIVE,
-		},
-		room = room,
+		name               = room_name,
+		cam                = cam,
+		cameras            = cameras,
+		room               = room,
 		walk_area_mesh_idx = walk_area_mesh_idx,
-		walk_area_tris = walk_area_tris,
-		interactables = interactables,
-		spawn_positions = spawn_positions,
-		actors = actors,
+		walk_area_tris     = walk_area_tris,
+		interactables      = interactables,
+		spawn_positions    = spawn_positions,
+		actors             = actors,
 	}
 
 	return level

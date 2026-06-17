@@ -18,7 +18,7 @@ update_cam_debug :: proc(dt: f32) {
 
 	cam_speed: f32 = 10
 
-	cam := &cur_level().cam
+	cam := cur_level().cam
 
 	if r.IsKeyDown(.UP) { 	//forward
 		r.CameraMoveForward(cam, cam_speed * dt, moveInWorldPlane = false)
@@ -68,7 +68,7 @@ default_third_person_cam := Third_Person_Cam {
 }
 
 update_cam_follow :: proc(dt: f32, cam_cfg: Third_Person_Cam = default_third_person_cam) {
-	cam := &cur_level().cam
+	cam := cur_level().cam
 	// player_pos := cur_level().actor.pos
 	// player_yaw := cur_level().actor.yaw
 	player_pos := main_actor.pos
