@@ -16,7 +16,7 @@ name     = "test_room"
 room_glb = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
 
 	[[levels.dialogues]]
-	id = "cleaner_dialog"	# must have the same name as interactable
+	id = "cleaner_dialog"	# must match interactable
 	lines = [
 		{ speaker = "mona", text = "Hey, how's it going?" },
 		{ speaker = "cleaner_a", text = "Busy day. Floor's not gonna mop itself." },
