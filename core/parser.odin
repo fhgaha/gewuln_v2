@@ -1,8 +1,11 @@
 package core
 
+<<<<<<< HEAD
 import "core:strings"
 import "core:mem"
 import "core:os"
+=======
+>>>>>>> 501c31aea3437bc5a84f9d050602ffb9d606e1d8
 import "../packages/toml"
 import "core:encoding/json"
 import r "vendor:raylib"
@@ -102,6 +105,7 @@ parse_quat_from_json :: proc(node: json.Object, key: string) -> r.Quaternion {
 	}
 	return quat
 }
+<<<<<<< HEAD
 
 get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
 	data, ok := os.read_entire_file(glb_path)
@@ -124,3 +128,5 @@ get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
 
 	return parsed
 }
+=======
+>>>>>>> 501c31aea3437bc5a84f9d050602ffb9d606e1d8
