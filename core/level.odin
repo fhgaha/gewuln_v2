@@ -30,15 +30,16 @@ Actor_Spawn_Placement :: struct {
 }
 
 create_levels :: proc(
-	section: ^toml.Table,
+	toml_table: ^toml.Table,
 ) -> (
 	levels: map[string]Level,
 	first_level_name: string,
 ) {
 	levels_table: ^toml.List
 	ok: bool
-	levels_table, ok = toml.get_list(section, "levels"); assert(ok)
-	first_level_name, ok = toml.get_string(section, "first_level_name"); assert(ok)
+	levels_table, ok = toml.get_list(toml_table, "levels"); assert(ok)
+	first_level_name, ok = toml.get_string(toml_table, "first_level_name"); assert(ok)
+
 
 	for lvl_table, i in levels_table {
 		lvl := create_level(lvl_table.(^toml.Table))
@@ -55,6 +56,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	room_glb_path := must(toml.get_string(level_table, "room_glb"))
 	room := r.LoadModel(strings.clone_to_cstring(room_glb_path))
 
+	// dialogue text from config.toml
 
 	// parse blender objects
 
@@ -75,25 +77,6 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 
 			is_camera := strings.contains(name, "camera")
 			if is_camera {
-				// map[
-				// 	translation = [
-				// 			3.9683666229248047,
-				// 			9.085062026977539,
-				// 			14.23040771484375,
-				// 	],
-				// 	rotation = [
-				// 			-0.30632132291793823,
-				// 			0.07797134667634964,
-				// 			0.025183893740177155,
-				// 			0.9483952522277832,
-				// 	],
-				// 	camera = 1,
-				// 	extras = map[
-				// 			is_cur = false,
-				// 	],
-				// 	name = "Camera.002",
-				// ],
-
 				translation := parse_vec3_from_json(node.(json.Object), "translation")
 				rotation := parse_quat_from_json(node.(json.Object), "rotation")
 				forward := r.Vector3RotateByQuaternion(BACKWARD, rotation) // BACKWARD = {0, 0, -1}
@@ -118,7 +101,11 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 
 			is_interactable := strings.contains(name, "interactable")
 			if is_interactable {
-				intr := parse_interactable_from_json(node.(json.Object))
+				intr := parse_interactable_from_glb(node.(json.Object))
+				_, intr_type_is_dialogue := intr.data.(Dialogue_Data)
+				if intr_type_is_dialogue {
+					intr.data = parse_dialogue_from_toml(level_table)
+				}
 				append(&interactables, intr)
 			}
 
@@ -185,7 +172,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	return level
 }
 
-parse_interactable_from_json :: proc(node: json.Object) -> Interactable {
+parse_interactable_from_glb :: proc(node: json.Object) -> Interactable {
 	pos := parse_vec3_from_json(node, "translation")
 	custom_props := node["extras"]
 	data: Interactable_Data_Union
@@ -212,6 +199,27 @@ parse_interactable_type_from_json :: proc(node: json.Object) -> Interactable_Dat
 		return Dialogue_Data{}
 	}
 	return nil
+}
+
+parse_dialogue_from_toml :: proc(level_table: ^toml.Table) -> Dialogue_Data {
+	dialogues_list := toml.get_list_panic(level_table, "dialogues")
+
+	dd_lines: [dynamic]Dialogue_Line
+	defer delete(dd_lines)
+
+	for elem in dialogues_list {
+		id := toml.get_string_panic(elem.(^toml.Table), "id")
+		lines := toml.get_list_panic(elem.(^toml.Table), "lines")
+		for l, i in lines {
+			dl := Dialogue_Line {
+				toml.get_string_panic(l.(^toml.Table), "speaker"),
+				toml.get_string_panic(l.(^toml.Table), "text"),
+			}
+			append(&dd_lines, dl)
+		}
+	}
+
+	return Dialogue_Data{lines = dd_lines[:]}
 }
 
 

@@ -12,7 +12,15 @@ Door_Data :: struct {
 	connected_level_name: string,
 }
 
-Dialogue_Data :: struct {}
+Dialogue_Data :: struct {
+	lines:   []Dialogue_Line,
+	cur_idx: int,
+}
+
+Dialogue_Line :: struct {
+	speaker: string,
+	text:    string,
+}
 
 Interactable_Data_Union :: union {
 	Door_Data,

@@ -271,5 +271,4 @@ draw_cameras :: proc() {
 			)
 		}
 	}
-
 }
