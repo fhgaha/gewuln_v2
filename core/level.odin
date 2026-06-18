@@ -4,8 +4,6 @@ import "../packages/toml"
 import "core:encoding/json"
 import "core:fmt"
 import "core:math"
-import "core:mem"
-import "core:os"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -60,23 +58,37 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 
 	// parse blender objects
 
-	cam: ^r.Camera3D
+
 	cameras: map[string]r.Camera3D
 	interactables: [dynamic]Interactable
 	walk_area_mesh_idx: i32 = -1
 	walk_area_tris: [dynamic]tri3
 	spawn_positions: [dynamic]Actor_Spawn_Placement
 	actors := create_actors_from_toml(game_config)
+	cur_cam_name: string
 
 	room_glb_json := get_json_chunk_from_glb(room_glb_path)
 	defer json.destroy_value(room_glb_json)
+	cameras_json, cameras_json_ok := room_glb_json.(json.Object)["cameras"].(json.Array)
+
 	for node in room_glb_json.(json.Object)["nodes"].(json.Array) {
 		name_val := node.(json.Object)["name"]
 		if name_val != nil {
 			name := strings.to_lower(name_val.(json.String))
 
-			is_camera := strings.contains(name, "camera")
+			is_camera := cameras_json_ok && strings.contains(name, "camera")
 			if is_camera {
+				cam_idx := node.(json.Object)["camera"].(json.Integer)
+				cam_json := cameras_json[cam_idx].(json.Object)
+				fovy := cam_json["perspective"].(json.Object)["yfov"].(json.Float) * r.RAD2DEG
+				projection: r.CameraProjection
+				switch cam_json["type"].(json.String) {
+				case "perspective", "panoramic":
+					projection = r.CameraProjection.PERSPECTIVE
+				case "orthographic":
+					projection = r.CameraProjection.ORTHOGRAPHIC
+				}
+
 				translation := parse_vec3_from_json(node.(json.Object), "translation")
 				rotation := parse_quat_from_json(node.(json.Object), "rotation")
 				forward := r.Vector3RotateByQuaternion(BACKWARD, rotation) // BACKWARD = {0, 0, -1}
@@ -86,15 +98,13 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 					position   = translation,
 					target     = target,
 					up         = UP,
-					fovy       = FOV_DEG / 4,
-					projection = .PERSPECTIVE,
+					fovy       = f32(fovy),
+					projection = projection,
 				}
-
 				extras := node.(json.Object)["extras"]
 				if extras != nil {
-					is_cur := extras.(json.Object)["is_cur"].(json.Boolean)
-					if (is_cur) {
-						cam = &cameras[name]
+					if extras.(json.Object)["is_cur"].(json.Boolean) {
+						cur_cam_name = name
 					}
 				}
 			}
@@ -134,6 +144,10 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 		}
 	}
 
+	assert(cur_cam_name != "")
+	cam := &cameras[cur_cam_name]
+
+
 	// set mesh idx for intereactables
 	for i in 0 ..< room.meshCount {
 		m := room.meshes[i]
@@ -150,7 +164,6 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 		assert(intr.mesh_index != -1, "interactable not matched to any mesh")
 	}
 
-	// print_pretty(spawn_positions)
 	// TODO second level wipes actors?
 	for spawn in spawn_positions {
 		actor_update_pos(&actors[spawn.actor_name], spawn.pos)
@@ -170,102 +183,6 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	}
 
 	return level
-}
-
-parse_interactable_from_glb :: proc(node: json.Object) -> Interactable {
-	pos := parse_vec3_from_json(node, "translation")
-	custom_props := node["extras"]
-	data: Interactable_Data_Union
-	if custom_props != nil {
-		data = parse_interactable_type_from_json(custom_props.(json.Object))
-	}
-
-	return Interactable {
-		name       = node["name"].(json.String),
-		pos        = pos,
-		mesh_index = -1, // these will be taken from loaded meshes
-		data       = data,
-	}
-}
-
-parse_interactable_type_from_json :: proc(node: json.Object) -> Interactable_Data_Union {
-	type_str, has_type := node["type"].(json.String)
-	if !has_type {return nil}
-	switch type_str {
-	case "door":
-		connected := node["connected_level"].(json.String)
-		return Door_Data{connected_level_name = connected}
-	case "dialogue":
-		return Dialogue_Data{}
-	}
-	return nil
-}
-
-parse_dialogue_from_toml :: proc(level_table: ^toml.Table) -> Dialogue_Data {
-	dialogues_list := toml.get_list_panic(level_table, "dialogues")
-
-	dd_lines: [dynamic]Dialogue_Line
-	defer delete(dd_lines)
-
-	for elem in dialogues_list {
-		id := toml.get_string_panic(elem.(^toml.Table), "id")
-		lines := toml.get_list_panic(elem.(^toml.Table), "lines")
-		for l, i in lines {
-			dl := Dialogue_Line {
-				toml.get_string_panic(l.(^toml.Table), "speaker"),
-				toml.get_string_panic(l.(^toml.Table), "text"),
-			}
-			append(&dd_lines, dl)
-		}
-	}
-
-	return Dialogue_Data{lines = dd_lines[:]}
-}
-
-
-parse_vec3_from_json :: proc(node: json.Object, key: string) -> vec3 {
-	tr := node["translation"]
-	vector: vec3
-	if tr != nil {
-		for i in 0 ..< 3 {
-			#partial switch v in tr.(json.Array)[i] {
-			case json.Float:
-				vector[i] = f32(v)
-			case json.Integer:
-				vector[i] = f32(v)
-			}
-		}
-	}
-	return vector
-}
-
-parse_quat_from_json :: proc(node: json.Object, key: string) -> r.Quaternion {
-	tr := node[key]
-	quat: r.Quaternion = r.Quaternion(1)
-	if tr != nil {
-		arr := tr.(json.Array)
-		for i in 0 ..< 4 {
-			val := arr[i]
-			v: f32
-			#partial switch w in val {
-			case json.Float:
-				v = f32(w)
-			case json.Integer:
-				v = f32(w)
-			}
-			switch i {
-			case 0:
-				quat.x = v
-			case 1:
-				quat.y = v
-			case 2:
-				quat.z = v
-			case 3:
-				quat.w = v
-			}
-		}
-	}
-	return quat
 }
 
 
@@ -351,26 +268,4 @@ fill_actor_placements :: proc(
 
 		append(actors_placements_to_fill, ap)
 	}
-}
-
-get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
-	data, ok := os.read_entire_file(glb_path)
-	assert(ok, "couldnt read file")
-	defer delete(data)
-
-	// 4 bytes "glTF", 4 bytes version, 4 bytes glb length, 4 bytes json chunk length, 4 bytes "JSON". each symbol is 1 byte
-
-	// Cast a slice of bytes directly to a slice of u32, then take the first element
-	chunk_length := mem.reinterpret_copy(u32, raw_data(data[12:16]))
-	// chunk_type: u32 = mem.slice_data_cast([]u32, data[16:20])[0]
-
-	res, err := strings.clone_from_bytes(data[16:20])
-	assert(res == "JSON" && err == .None)
-
-	json_data := data[20:(20 + chunk_length)]
-
-	parsed, parsed_err := json.parse(json_data, json.DEFAULT_SPECIFICATION, parse_integers = true)
-	assert(parsed_err == .None)
-
-	return parsed
 }
