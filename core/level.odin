@@ -70,6 +70,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	room_glb_json := get_json_chunk_from_glb(room_glb_path)
 	defer json.destroy_value(room_glb_json)
 	cameras_json, cameras_json_ok := room_glb_json.(json.Object)["cameras"].(json.Array)
+	assert(cameras_json_ok, "level must have a camera")
 
 	for node in room_glb_json.(json.Object)["nodes"].(json.Array) {
 		name_val := node.(json.Object)["name"]
@@ -144,7 +145,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 		}
 	}
 
-	assert(cur_cam_name != "")
+	assert(cur_cam_name != "", cur_cam_name)
 	cam := &cameras[cur_cam_name]
 
 
