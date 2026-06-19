@@ -84,7 +84,6 @@ setup :: proc() {
 	game_state.levels, game_state.cur_level_name = create_levels(game_config)
 	main_actor = &game_state.levels["test_room"].actors["mona"]
 
-
 	// searching neck bone index
 	for i in 0 ..< main_actor.model.boneCount {
 		bone_name := string(cast(cstring)&main_actor.model.bones[i].name[0])

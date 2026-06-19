@@ -59,7 +59,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	// parse blender objects
 
 
-	cameras: map[string]r.Camera3D
+	gameplay_cameras: map[string]r.Camera3D
 	interactables: [dynamic]Interactable
 	walk_area_mesh_idx: i32 = -1
 	walk_area_tris: [dynamic]tri3
@@ -95,19 +95,23 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 				forward := r.Vector3RotateByQuaternion(BACKWARD, rotation) // BACKWARD = {0, 0, -1}
 				target := translation + forward
 
-				cameras[name] = r.Camera3D {
-					position   = translation,
-					target     = target,
-					up         = UP,
-					fovy       = f32(fovy),
-					projection = projection,
-				}
 				extras := node.(json.Object)["extras"]
 				if extras != nil {
 					if extras.(json.Object)["is_cur"].(json.Boolean) {
 						cur_cam_name = name
 					}
 				}
+				camera := r.Camera3D {
+					position   = translation,
+					target     = target,
+					up         = UP,
+					fovy       = f32(fovy),
+					projection = projection,
+				}
+				gameplay_cameras[name] = camera
+				
+				// if camera belongs to dialog, store in interactable.
+				// if its walk camera store in cur lvl cameras
 			}
 
 			is_interactable := strings.contains(name, "interactable")
@@ -146,8 +150,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	}
 
 	assert(cur_cam_name != "", cur_cam_name)
-	cam := &cameras[cur_cam_name]
-
+	cam := &gameplay_cameras[cur_cam_name]
 
 	// set mesh idx for intereactables
 	for i in 0 ..< room.meshCount {
@@ -174,7 +177,7 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	level := Level {
 		name               = room_name,
 		cam                = cam,
-		cameras            = cameras,
+		cameras            = gameplay_cameras,
 		room               = room,
 		walk_area_mesh_idx = walk_area_mesh_idx,
 		walk_area_tris     = walk_area_tris,
