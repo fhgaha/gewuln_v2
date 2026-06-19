@@ -79,39 +79,13 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 
 			is_camera := cameras_json_ok && strings.contains(name, "camera")
 			if is_camera {
-				cam_idx := node.(json.Object)["camera"].(json.Integer)
-				cam_json := cameras_json[cam_idx].(json.Object)
-				fovy := cam_json["perspective"].(json.Object)["yfov"].(json.Float) * r.RAD2DEG
-				projection: r.CameraProjection
-				switch cam_json["type"].(json.String) {
-				case "perspective", "panoramic":
-					projection = r.CameraProjection.PERSPECTIVE
-				case "orthographic":
-					projection = r.CameraProjection.ORTHOGRAPHIC
+				camera, is_cur := parse_camera3d_from_glb(node.(json.Object), &cameras_json)
+				if is_cur {
+					cur_cam_name = name
 				}
-
-				translation := parse_vec3_from_json(node.(json.Object), "translation")
-				rotation := parse_quat_from_json(node.(json.Object), "rotation")
-				forward := r.Vector3RotateByQuaternion(BACKWARD, rotation) // BACKWARD = {0, 0, -1}
-				target := translation + forward
-
-				extras := node.(json.Object)["extras"]
-				if extras != nil {
-					if extras.(json.Object)["is_cur"].(json.Boolean) {
-						cur_cam_name = name
-					}
+				if strings.contains(name, "gameplay") {
+					gameplay_cameras[name] = camera
 				}
-				camera := r.Camera3D {
-					position   = translation,
-					target     = target,
-					up         = UP,
-					fovy       = f32(fovy),
-					projection = projection,
-				}
-				gameplay_cameras[name] = camera
-				
-				// if camera belongs to dialog, store in interactable.
-				// if its walk camera store in cur lvl cameras
 			}
 
 			is_interactable := strings.contains(name, "interactable")

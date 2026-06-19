@@ -1,10 +1,12 @@
 package core
 
-import "core:strings"
-import "core:mem"
-import "core:os"
 import "../packages/toml"
 import "core:encoding/json"
+import "core:fmt"
+import "core:math"
+import "core:mem"
+import "core:os"
+import "core:strings"
 import r "vendor:raylib"
 
 parse_interactable_from_glb :: proc(node: json.Object) -> Interactable {
@@ -123,4 +125,40 @@ get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
 	assert(parsed_err == .None)
 
 	return parsed
+}
+
+parse_camera3d_from_glb :: proc(
+	node: json.Object,
+	cameras_json: ^json.Array,
+) -> (
+	camera: r.Camera3D,
+	is_cur: bool,
+) {
+	cam_idx := node["camera"].(json.Integer)
+	cam_json := cameras_json[cam_idx].(json.Object)
+	fovy := cam_json["perspective"].(json.Object)["yfov"].(json.Float) * r.RAD2DEG
+	projection: r.CameraProjection
+	switch cam_json["type"].(json.String) {
+	case "perspective", "panoramic":
+		projection = r.CameraProjection.PERSPECTIVE
+	case "orthographic":
+		projection = r.CameraProjection.ORTHOGRAPHIC
+	}
+
+	translation := parse_vec3_from_json(node, "translation")
+	rotation := parse_quat_from_json(node, "rotation")
+	forward := r.Vector3RotateByQuaternion(BACKWARD, rotation) // BACKWARD = {0, 0, -1}
+	target := translation + forward
+
+	extras := node["extras"]
+	is_cur = extras != nil && extras.(json.Object)["is_cur"].(json.Boolean) == true
+
+	camera = r.Camera3D {
+		position   = translation,
+		target     = target,
+		up         = UP,
+		fovy       = f32(fovy),
+		projection = projection,
+	}
+	return
 }

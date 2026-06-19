@@ -17,6 +17,7 @@ Actor :: struct {
 	bounding_box:          r.BoundingBox,
 	state:                 Actor_State,
 	animator:              Animator,
+	dialogue_cameras:      []r.Camera3D,
 
 	//neck rotation
 	neck_bone_index:       i32,
@@ -152,7 +153,7 @@ actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
 	// rot := r.MatrixRotateY(actor.yaw)
 	// transl := r.MatrixTranslate(actor.pos.x, actor.pos.y, actor.pos.z)
 	// actor.model.transform = transl * rot
-	// just set transform to rotation since raylib in DrawModel multiplies position 
+	// just set transform to rotation since raylib in DrawModel multiplies position
 	// to model's transform
 	actor.model.transform = r.MatrixRotateY(new_yaw)
 
