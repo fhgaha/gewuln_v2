@@ -1,5 +1,6 @@
 package core
 
+import "core:strings"
 import r "vendor:raylib"
 
 Interactable_Type :: enum {
@@ -49,7 +50,8 @@ interact :: proc() {
 			assert(d.connected_level_name in game_state.levels, "No such key in levels!")
 			change_level(&game_state, &game_state.levels[d.connected_level_name])
 		case Dialogue_Data:
-
+			second_actor := &cur_level().actors["cleaner_a"]
+			run_dialogue(intr, main_actor, second_actor)
 		case:
 		// no action or default
 		}
@@ -75,4 +77,21 @@ is_interactable_mesh :: proc(interactables: []Interactable, mesh_index: i32) -> 
 		if intr.mesh_index == mesh_index do return true
 	}
 	return false
+}
+
+run_dialogue :: proc(intr: Interactable, main_actor: ^Actor, second_actor: ^Actor) {
+	data := intr.data.(Dialogue_Data)
+	// print_pretty(data)
+	for l in data.lines {
+		// here:  ["mona", "Hey, how's it going?"]
+		// here:  ["cleaner_a", "Busy day. Floor's not gonna mop itself."]
+		// here:  ["mona", "Fair enough."]
+		// here:  ["cleaner_a", "..."]
+
+		speaker := cur_level().actors[l.speaker]
+		text := l.text
+
+		r.DrawText(strings.clone_to_cstring(text), 20, 30, 16, r.WHITE)
+
+	}
 }

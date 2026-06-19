@@ -64,6 +64,9 @@ main :: proc() {
 
 	setup()
 
+	//testing
+	actor_update_pos_and_yaw(main_actor, vec3{-3, 0, -3}, 180)
+
 	for !r.WindowShouldClose() {
 		update()
 		draw()

@@ -40,9 +40,7 @@ parse_interactable_type_from_json :: proc(node: json.Object) -> Interactable_Dat
 
 parse_dialogue_from_toml :: proc(level_table: ^toml.Table) -> Dialogue_Data {
 	dialogues_list := toml.get_list_panic(level_table, "dialogues")
-
 	dd_lines: [dynamic]Dialogue_Line
-	defer delete(dd_lines)
 
 	for elem in dialogues_list {
 		id := toml.get_string_panic(elem.(^toml.Table), "id")

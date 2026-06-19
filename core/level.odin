@@ -38,15 +38,16 @@ create_levels :: proc(
 	levels_table, ok = toml.get_list(toml_table, "levels"); assert(ok)
 	first_level_name, ok = toml.get_string(toml_table, "first_level_name"); assert(ok)
 
+	actors := create_actors_from_toml(game_config)
 
 	for lvl_table, i in levels_table {
-		lvl := create_level(lvl_table.(^toml.Table))
+		lvl := create_level(lvl_table.(^toml.Table), actors)
 		levels[lvl.name] = lvl
 	}
 	return
 }
 
-create_level :: proc(level_table: ^toml.Table) -> Level {
+create_level :: proc(level_table: ^toml.Table, actors: map[string]Actor) -> Level {
 
 	// room
 
@@ -54,17 +55,15 @@ create_level :: proc(level_table: ^toml.Table) -> Level {
 	room_glb_path := must(toml.get_string(level_table, "room_glb"))
 	room := r.LoadModel(strings.clone_to_cstring(room_glb_path))
 
-	// dialogue text from config.toml
 
 	// parse blender objects
-
 
 	gameplay_cameras: map[string]r.Camera3D
 	interactables: [dynamic]Interactable
 	walk_area_mesh_idx: i32 = -1
 	walk_area_tris: [dynamic]tri3
 	spawn_positions: [dynamic]Actor_Spawn_Placement
-	actors := create_actors_from_toml(game_config)
+
 	cur_cam_name: string
 
 	room_glb_json := get_json_chunk_from_glb(room_glb_path)

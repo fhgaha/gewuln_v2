@@ -1,8 +1,8 @@
 package core
 
 import "../packages/toml"
+import "core:encoding/json"
 import "core:fmt"
-import "core:math"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -17,11 +17,11 @@ Actor :: struct {
 	bounding_box:          r.BoundingBox,
 	state:                 Actor_State,
 	animator:              Animator,
-	dialogue_cameras:      []r.Camera3D,
 
 	//neck rotation
 	neck_bone_index:       i32,
 	neck_current_delta:    r.Quaternion,
+	dialogue_cameras:      map[string]r.Camera3D,
 }
 
 Actor_State :: enum {
@@ -42,40 +42,32 @@ Input_State :: struct {
 	wants_interact: bool,
 }
 
-create_actors_from_toml :: proc(section: ^toml.Table) -> (actors: map[string]Actor) {
-	for a in section["actors"].(^toml.List) {
+create_actors_from_toml :: proc(toml_table: ^toml.Table) -> (actors: map[string]Actor) {
+	for a in toml_table["actors"].(^toml.List) {
 		actor_name := toml.get_string_panic(a.(^toml.Table), "name")
-		model_path := toml.get_string_panic(a.(^toml.Table), "model")
-		collider_path, coll_ok := toml.get_string(a.(^toml.Table), "collider")
-
-		actor, ok := create_actor(
-			actor_name,
-			strings.clone_to_cstring(model_path),
-			strings.clone_to_cstring(collider_path),
-		)
+		actor, ok := create_actor(a.(^toml.Table))
 		if !ok do panic(fmt.tprintf("couldnt create actor: %v", actor))
 		actors[actor_name] = actor
 	}
 	return
 }
 
-create_actor :: proc(
-	actor_name: string,
-	actor_path, collider_path: cstring,
-) -> (
-	actor: Actor,
-	ok: bool,
-) {
+create_actor :: proc(actor_table: ^toml.Table) -> (actor: Actor, ok: bool) {
+	actor_name := toml.get_string_panic(actor_table, "name")
+	model_path := toml.get_string_panic(actor_table, "model")
+	collider_path, coll_ok := toml.get_string(actor_table, "collider")
+	model_path_c := strings.clone_to_cstring(model_path)
+
 	// Load resources
-	actor_model := r.LoadModel(actor_path)
+	actor_model := r.LoadModel(model_path_c)
 	if !r.IsModelValid(actor_model) {
 		return {}, false
 	}
 
 	has_collider: bool
 	actor_coll_model: r.Model
-	if collider_path != "" {
-		actor_coll_model = r.LoadModel(collider_path)
+	if coll_ok && collider_path != "" {
+		actor_coll_model = r.LoadModel(strings.clone_to_cstring(collider_path))
 		has_collider = true
 		if !r.IsModelValid(actor_coll_model) {
 			r.UnloadModel(actor_model)
@@ -85,7 +77,7 @@ create_actor :: proc(
 
 	// Load animations
 	anim_count: i32
-	anims := r.LoadModelAnimations(actor_path, &anim_count)
+	anims := r.LoadModelAnimations(model_path_c, &anim_count)
 	if anims == nil || anim_count == 0 {
 		r.UnloadModel(actor_model)
 		r.UnloadModel(actor_coll_model)
@@ -99,6 +91,24 @@ create_actor :: proc(
 		anims       = anims,
 	}
 	fill_animation_names(&animator)
+
+	// parse dialogue cameras
+	model_glb_json := get_json_chunk_from_glb(model_path)
+	cameras_json, cameras_json_ok := model_glb_json.(json.Object)["cameras"].(json.Array)
+	dialogue_cameras: map[string]r.Camera3D
+
+	for node in model_glb_json.(json.Object)["nodes"].(json.Array) {
+		name_val := node.(json.Object)["name"]
+		if name_val != nil {
+			name := strings.to_lower(name_val.(json.String))
+			is_dialogue_camera :=
+				strings.contains(name, "camera") && strings.contains(name, "dialogue")
+			if is_dialogue_camera {
+				camera, _ := parse_camera3d_from_glb(node.(json.Object), &cameras_json)
+				dialogue_cameras[name] = camera
+			}
+		}
+	}
 
 	actor = Actor {
 		initialised           = true,
@@ -114,6 +124,7 @@ create_actor :: proc(
 		animator              = animator,
 		neck_bone_index       = -1,
 		neck_current_delta    = r.Quaternion(1),
+		dialogue_cameras      = dialogue_cameras,
 	}
 	ok = true
 	return
@@ -131,6 +142,11 @@ actor_dir :: proc(actor: ^Actor) -> vec3 {
 actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 	fwd, left, up = orientation_from_transform(actor.model.transform)
 	return
+}
+
+actor_update_pos_and_yaw :: proc(actor: ^Actor, pos: vec3, yaw_deg: f32) {
+	actor_update_pos(actor, pos)
+	actor_update_yaw(actor, yaw_deg * r.DEG2RAD)
 }
 
 actor_update_pos :: proc(actor: ^Actor, new_pos: vec3) {
