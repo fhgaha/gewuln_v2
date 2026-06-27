@@ -345,6 +345,8 @@ handle_dialogue :: proc() {
 	// here:  ["cleaner_a", "Busy day. Floor's not gonna mop itself."]
 	// here:  ["mona", "Fair enough."]
 	// here:  ["cleaner_a", "..."]
+	
+	play_anim(&main_actor.animator, .IDLE)
 
 	if len(cur_dialogue.lines) == 0 {
 		cur_dialogue = slice.last(interact_targets[:]).data.(Dialogue_Data)
