@@ -28,12 +28,14 @@ Actor_State :: enum {
 	IDLE,
 	WALK,
 	INTERACT,
+	DIALOGUE,
 }
 
 actor_state_strings := [Actor_State]string {
 	.IDLE     = "idle",
 	.WALK     = "walk",
 	.INTERACT = "interact",
+	.DIALOGUE = "dialogue",
 }
 
 Input_State :: struct {
@@ -289,13 +291,18 @@ handle_interact :: proc() {
 		interact()
 	}
 
+
 	//state conditions	
 	walk_cond := animation_ended && input.move_dir != 0
 	idle_cond := animation_ended
 	switch {
+	//TODO
+	case true:
+		main_actor.state = .DIALOGUE
+		fmt.println(main_actor.name, ": handle_dialogue")
 	case walk_cond:
 		main_actor.state = .WALK
-		fmt.println(main_actor.name, ": handle_idle")
+		fmt.println(main_actor.name, ": handle_walk")
 	case idle_cond:
 		main_actor.state = .IDLE
 		fmt.println(main_actor.name, ": handle_idle")
@@ -336,4 +343,26 @@ get_interactable_colliding_actor :: proc(
 
 	found = true
 	return
+}
+
+handle_dialogue :: proc() {
+	// here:  ["mona", "Hey, how's it going?"]
+	// here:  ["cleaner_a", "Busy day. Floor's not gonna mop itself."]
+	// here:  ["mona", "Fair enough."]
+	// here:  ["cleaner_a", "..."]
+
+	if len(cur_dialogue.lines) == 0 {
+		interact_trg, interact_tgr_found := get_interactable_colliding_actor(
+			cur_level().interactables[:],
+			main_actor,
+		)
+		cur_dialogue = interact_trg[0].data.(Dialogue_Data)
+	}
+
+	if r.IsKeyReleased(.SPACE) {
+		cur_dialogue.cur_idx += 1
+		if cur_dialogue.cur_idx >= len(cur_dialogue.lines) {
+			cur_dialogue.cur_idx = 0
+		}
+	}
 }

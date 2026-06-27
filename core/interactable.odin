@@ -1,5 +1,6 @@
 package core
 
+import "core:fmt"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -51,7 +52,16 @@ interact :: proc() {
 			change_level(&game_state, &game_state.levels[d.connected_level_name])
 		case Dialogue_Data:
 			second_actor := &cur_level().actors["cleaner_a"]
-			run_dialogue(intr, main_actor, second_actor)
+			main_actor.state = .DIALOGUE
+
+			data := d
+			cur_dialogue = data
+			
+			line := data.lines[data.cur_idx]
+			speaker := cur_level().actors[line.speaker]
+			text := line.text
+			
+			
 		case:
 		// no action or default
 		}
@@ -82,16 +92,18 @@ is_interactable_mesh :: proc(interactables: []Interactable, mesh_index: i32) -> 
 run_dialogue :: proc(intr: Interactable, main_actor: ^Actor, second_actor: ^Actor) {
 	data := intr.data.(Dialogue_Data)
 	// print_pretty(data)
-	for l in data.lines {
-		// here:  ["mona", "Hey, how's it going?"]
-		// here:  ["cleaner_a", "Busy day. Floor's not gonna mop itself."]
-		// here:  ["mona", "Fair enough."]
-		// here:  ["cleaner_a", "..."]
+	line := data.lines[data.cur_idx]
 
-		speaker := cur_level().actors[l.speaker]
-		text := l.text
+	// here:  ["mona", "Hey, how's it going?"]
+	// here:  ["cleaner_a", "Busy day. Floor's not gonna mop itself."]
+	// here:  ["mona", "Fair enough."]
+	// here:  ["cleaner_a", "..."]
 
-		r.DrawText(strings.clone_to_cstring(text), 20, 30, 16, r.WHITE)
+	speaker := cur_level().actors[line.speaker]
+	text := line.text
 
+	data.cur_idx += 1
+	if data.cur_idx >= len(data.lines) {
+		data.cur_idx = 0
 	}
 }

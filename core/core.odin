@@ -36,6 +36,10 @@ fxaa_intensity_loc: i32
 
 debug_lines: [dynamic]DebugLine
 
+
+cur_dialogue: Dialogue_Data
+
+
 main :: proc() {
 	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_RESIZABLE})
 
@@ -106,9 +110,9 @@ update :: proc() {
 
 		if .paused in flags do break
 
+		//input
 		input = get_player_input()
 
-		//input
 		if r.IsKeyReleased(.ONE) do flags ~= {.small_res}
 		if r.IsKeyReleased(.TWO) do flags ~= {.show_gizmos}
 		if r.IsKeyReleased(.THREE) {
@@ -128,6 +132,8 @@ update :: proc() {
 
 
 		switch main_actor.state {
+		case .DIALOGUE:
+			handle_dialogue()
 		case .IDLE:
 			handle_idle(DT)
 		case .WALK:
@@ -175,6 +181,7 @@ draw :: proc() {
 			render_3d_scene()
 		}
 
+		draw_dialogue()
 		draw_fps()
 	}
 	r.EndDrawing()
@@ -273,4 +280,22 @@ draw_cameras :: proc() {
 			)
 		}
 	}
+}
+
+draw_dialogue :: proc() {
+	if main_actor.state != .DIALOGUE do return
+	if len(cur_dialogue.lines) == 0 do return
+
+	speaker := cur_dialogue.lines[cur_dialogue.cur_idx].speaker
+	text := cur_dialogue.lines[cur_dialogue.cur_idx].text
+
+	r.DrawTextEx(
+		font,
+		strings.clone_to_cstring(speaker),
+		{70, WINDOW_HEIGHT - 190},
+		24,
+		0,
+		r.YELLOW,
+	)
+	r.DrawTextEx(font, strings.clone_to_cstring(text), {70, WINDOW_HEIGHT - 150}, 24, 0, r.BLACK)
 }
