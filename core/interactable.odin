@@ -1,6 +1,7 @@
 package core
 
 import "core:fmt"
+import "core:slice"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -44,27 +45,25 @@ Interactables_Naming_Table :: [?]struct {
 
 
 interact :: proc() {
-	for intr in cur_level().intersected_interactables {
-		switch d in intr.data {
-		case Door_Data:
-			assert(d.connected_level_name != "")
-			assert(d.connected_level_name in game_state.levels, "No such key in levels!")
-			change_level(&game_state, &game_state.levels[d.connected_level_name])
-		case Dialogue_Data:
-			second_actor := &cur_level().actors["cleaner_a"]
-			main_actor.state = .DIALOGUE
+	switch d in slice.last(interact_targets[:]).data {
+	case Door_Data:
+		assert(d.connected_level_name != "")
+		assert(d.connected_level_name in game_state.levels, "No such key in levels!")
+		change_level(&game_state, &game_state.levels[d.connected_level_name])
+	case Dialogue_Data:
+		second_actor := &cur_level().actors["cleaner_a"]
+		main_actor.state = .DIALOGUE
 
-			data := d
-			cur_dialogue = data
-			
-			line := data.lines[data.cur_idx]
-			speaker := cur_level().actors[line.speaker]
-			text := line.text
-			
-			
-		case:
-		// no action or default
-		}
+		data := d
+		cur_dialogue = data
+
+		line := data.lines[data.cur_idx]
+		speaker := cur_level().actors[line.speaker]
+		text := line.text
+
+
+	case:
+	// no action or default
 	}
 }
 

@@ -3,6 +3,7 @@ package core
 import "../packages/toml"
 import "core:encoding/json"
 import "core:fmt"
+import "core:slice"
 import "core:strings"
 import r "vendor:raylib"
 
@@ -191,12 +192,7 @@ handle_idle :: proc(dt: f32) {
 	// state transitions	
 	walk_cond := input.move_dir != 0
 
-	interact_trg, interact_tgr_found := get_interactable_colliding_actor(
-		cur_level().interactables[:],
-		main_actor,
-	)
-
-	interact_cond := input.wants_interact && interact_tgr_found
+	interact_cond := input.wants_interact && interact_target_found
 	switch {
 	case walk_cond:
 		main_actor.state = .WALK
@@ -220,12 +216,8 @@ handle_walk :: proc(dt: f32) {
 
 
 	// state transitions
-	interact_trg, interact_trg_found := get_interactable_colliding_actor(
-		cur_level().interactables[:],
-		main_actor,
-	)
 
-	interact_cond := interact_trg_found && input.wants_interact
+	interact_cond := interact_target_found && input.wants_interact
 	idle_cond := input.move_dir == 0
 	switch {
 	case interact_cond:
@@ -283,6 +275,8 @@ resolve_slide :: proc(desired: vec3, bb: r.BoundingBox, area: []tri3) -> (result
 
 
 handle_interact :: proc() {
+	assert(interact_target_found)
+
 	play_anim(&main_actor.animator, .INTERACT)
 
 	animation_ended := last_frame_reached(&main_actor.animator)
@@ -293,11 +287,12 @@ handle_interact :: proc() {
 
 
 	//state conditions	
+	dialogue, is_dialogue:=slice.last(interact_targets[:]).data.(Dialogue_Data)
+	dialogue_cond := animation_ended && interact_target_found && is_dialogue
 	walk_cond := animation_ended && input.move_dir != 0
 	idle_cond := animation_ended
 	switch {
-	//TODO
-	case true:
+	case dialogue_cond:
 		main_actor.state = .DIALOGUE
 		fmt.println(main_actor.name, ": handle_dialogue")
 	case walk_cond:
@@ -352,17 +347,14 @@ handle_dialogue :: proc() {
 	// here:  ["cleaner_a", "..."]
 
 	if len(cur_dialogue.lines) == 0 {
-		interact_trg, interact_tgr_found := get_interactable_colliding_actor(
-			cur_level().interactables[:],
-			main_actor,
-		)
-		cur_dialogue = interact_trg[0].data.(Dialogue_Data)
+		cur_dialogue = slice.last(interact_targets[:]).data.(Dialogue_Data)
 	}
 
 	if r.IsKeyReleased(.SPACE) {
 		cur_dialogue.cur_idx += 1
 		if cur_dialogue.cur_idx >= len(cur_dialogue.lines) {
 			cur_dialogue.cur_idx = 0
+			main_actor.state = .IDLE
 		}
 	}
 }

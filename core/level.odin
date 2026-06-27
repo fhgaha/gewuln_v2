@@ -168,8 +168,7 @@ destroy_level :: proc() {
 }
 
 load_level :: proc(lvl: ^Level) {
-	// do this once at start in case actor appeared inside of interactable
-	_, __ := get_interactable_colliding_actor(cur_level().interactables[:], main_actor)
+
 }
 
 unload_level :: proc(lvl: ^Level) {

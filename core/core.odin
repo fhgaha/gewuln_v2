@@ -38,6 +38,8 @@ debug_lines: [dynamic]DebugLine
 
 
 cur_dialogue: Dialogue_Data
+interact_targets: [dynamic]Interactable
+interact_target_found: bool
 
 
 main :: proc() {
@@ -130,6 +132,10 @@ update :: proc() {
 			fmt.println("fxaa_intensity: ", fxaa_intensity)
 		}
 
+		interact_targets, interact_target_found = get_interactable_colliding_actor(
+			cur_level().interactables[:],
+			main_actor,
+		)
 
 		switch main_actor.state {
 		case .DIALOGUE:
