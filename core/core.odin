@@ -293,22 +293,12 @@ draw_dialogue :: proc() {
 	if len(cur_dialogue.lines) == 0 do return
 
 	speaker_name := cur_dialogue.lines[cur_dialogue.cur_idx].speaker
-	speaker_name_c := strings.clone_to_cstring(speaker_name)
 	text := cur_dialogue.lines[cur_dialogue.cur_idx].text
-	text_c := strings.clone_to_cstring(text)
-	FONT_SIZE_ACTOR_NAME: f32 = 24
-	FONT_SIZE_ACTOR_LINE: f32 = 24
-	FONT_SPACING: f32 = 0
-	BORDER_THICKNESS: f32 = 2
-
-	speaker_name_size := r.MeasureTextEx(font, speaker_name_c, FONT_SIZE_ACTOR_NAME, FONT_SPACING)
-	text_size := r.MeasureTextEx(font, text_c, FONT_SIZE_ACTOR_LINE, FONT_SPACING)
 
 	// actor name
 	draw_text_with_border(
 		font = font,
-		text = speaker_name_c,
-		pos = {WINDOW_WIDTH * 0.5 - speaker_name_size.x * 0.5, WINDOW_HEIGHT * 0.7},
+		text = speaker_name,
 		size = FONT_SIZE_ACTOR_NAME,
 		spacing = FONT_SPACING,
 		text_color = r.BLACK,
@@ -316,12 +306,10 @@ draw_dialogue :: proc() {
 		border_thickness = BORDER_THICKNESS,
 	)
 
-
 	// actor line
 	draw_text_with_border(
 		font = font,
-		text = text_c,
-		pos = {WINDOW_WIDTH * 0.5 - text_size.x * 0.5, WINDOW_HEIGHT * 0.8},
+		text = text,
 		size = FONT_SIZE_ACTOR_LINE,
 		spacing = FONT_SPACING,
 		text_color = r.RAYWHITE,
@@ -332,14 +320,17 @@ draw_dialogue :: proc() {
 
 draw_text_with_border :: proc(
 	font: r.Font,
-	text: cstring,
-	pos: vec2,
+	text: string,
 	size: f32,
 	spacing: f32,
 	text_color: r.Color,
 	border_color: r.Color,
 	border_thickness: f32,
 ) {
+	text_c := strings.clone_to_cstring(text)
+	text_size := r.MeasureTextEx(font, text_c, FONT_SIZE_ACTOR_NAME, FONT_SPACING)
+	pos := vec2{WINDOW_WIDTH * 0.5 - text_size.x * 0.5, WINDOW_HEIGHT * 0.7}
+
 	// Loop through an 8-directional grid around the central position
 	for dx: f32 = -1; dx <= 1; dx += 1 {
 		for dy: f32 = -1; dy <= 1; dy += 1 {
@@ -347,10 +338,10 @@ draw_text_with_border :: proc(
 
 			// Calculate the outer perimeter boundary
 			offset := vec2{dx * border_thickness, dy * border_thickness}
-			r.DrawTextEx(font, text, pos + offset, size, spacing, border_color)
+			r.DrawTextEx(font, text_c, pos + offset, size, spacing, border_color)
 		}
 	}
 
 	// Finally, layer the pristine text directly over the core center
-	r.DrawTextEx(font, text, pos, size, spacing, text_color)
+	r.DrawTextEx(font, text_c, pos, size, spacing, text_color)
 }
