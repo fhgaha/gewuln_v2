@@ -3,6 +3,7 @@ package core
 import "../packages/toml"
 import "core:encoding/json"
 import "core:fmt"
+import "core:math/rand"
 import "core:slice"
 import "core:strings"
 import r "vendor:raylib"
@@ -22,7 +23,7 @@ Actor :: struct {
 	//neck rotation
 	neck_bone_index:       i32,
 	neck_current_delta:    r.Quaternion,
-	dialogue_cameras:      map[string]r.Camera3D,
+	dialogue_cameras:      [dynamic]r.Camera3D,
 }
 
 Actor_State :: enum {
@@ -98,7 +99,7 @@ create_actor :: proc(actor_table: ^toml.Table) -> (actor: Actor, ok: bool) {
 	// parse dialogue cameras
 	model_glb_json := get_json_chunk_from_glb(model_path)
 	cameras_json, cameras_json_ok := model_glb_json.(json.Object)["cameras"].(json.Array)
-	dialogue_cameras: map[string]r.Camera3D
+	dialogue_cameras: [dynamic]r.Camera3D
 
 	for node in model_glb_json.(json.Object)["nodes"].(json.Array) {
 		name_val := node.(json.Object)["name"]
@@ -107,8 +108,8 @@ create_actor :: proc(actor_table: ^toml.Table) -> (actor: Actor, ok: bool) {
 			is_dialogue_camera :=
 				strings.contains(name, "camera") && strings.contains(name, "dialogue")
 			if is_dialogue_camera {
-				camera, _ := parse_camera3d_from_glb(node.(json.Object), &cameras_json)
-				dialogue_cameras[name] = camera
+				camera, camera_ok := parse_camera3d_from_glb(node.(json.Object), &cameras_json)
+				append(&dialogue_cameras, camera)
 			}
 		}
 	}
@@ -155,8 +156,14 @@ actor_update_pos_and_yaw :: proc(actor: ^Actor, pos: vec3, yaw_deg: f32) {
 actor_update_pos :: proc(actor: ^Actor, new_pos: vec3) {
 	old_pos := actor.pos
 	actor.pos = new_pos
-	actor.bounding_box.min += new_pos - old_pos
-	actor.bounding_box.max += new_pos - old_pos
+	delta := new_pos - old_pos
+	actor.bounding_box.min += delta
+	actor.bounding_box.max += delta
+
+	for &c in actor.dialogue_cameras {
+		c.position += delta
+		c.target += delta
+	}
 
 	if actor.pos != old_pos && .print_debug_info in flags {
 		fmt.println(actor.name, ": pos =", actor.pos)
@@ -176,10 +183,34 @@ actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
 	// to model's transform
 	actor.model.transform = r.MatrixRotateY(new_yaw)
 
+	q := r.QuaternionFromAxisAngle(UP, new_yaw - old_yaw)
+	for &c in actor.dialogue_cameras {
+		c.position = actor.pos + r.Vector3RotateByQuaternion(c.position - actor.pos, q)
+		c.target = actor.pos + r.Vector3RotateByQuaternion(c.target - actor.pos, q)
+	}
+
 	if new_yaw != old_yaw && .print_debug_info in flags {
 		fmt.println(actor.name, ": yaw =", new_yaw * r.RAD2DEG)
 	}
 }
+
+// actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
+// 	old_yaw := actor.yaw
+// 	new_yaw := clamp_angle(yaw)
+// 	actor.yaw = new_yaw
+// 	actor.model.transform = r.MatrixRotateY(new_yaw)
+// 	delta := new_yaw - old_yaw
+
+// 	for &c in actor.dialogue_cameras {
+// 		q := r.QuaternionFromAxisAngle(UP, delta)
+// 		c.position = actor.pos + r.Vector3RotateByQuaternion(c.position - actor.pos, q)
+// 		c.target = actor.pos + r.Vector3RotateByQuaternion(c.target - actor.pos, q)
+// 	}
+
+// 	if new_yaw != old_yaw && .print_debug_info in flags {
+// 		fmt.println(actor.name, ": yaw =", new_yaw * r.RAD2DEG)
+// 	}
+// }
 
 //actor states
 
@@ -287,7 +318,7 @@ handle_interact :: proc() {
 
 
 	//state conditions	
-	dialogue, is_dialogue:=slice.last(interact_targets[:]).data.(Dialogue_Data)
+	dialogue, is_dialogue := slice.last(interact_targets[:]).data.(Dialogue_Data)
 	dialogue_cond := animation_ended && interact_target_found && is_dialogue
 	walk_cond := animation_ended && input.move_dir != 0
 	idle_cond := animation_ended
@@ -345,18 +376,37 @@ handle_dialogue :: proc() {
 	// here:  ["cleaner_a", "Busy day. Floor's not gonna mop itself."]
 	// here:  ["mona", "Fair enough."]
 	// here:  ["cleaner_a", "..."]
-	
+
 	play_anim(&main_actor.animator, .IDLE)
 
 	if len(cur_dialogue.lines) == 0 {
 		cur_dialogue = slice.last(interact_targets[:]).data.(Dialogue_Data)
+		cur_dialogue.cashed_cam = cur_level().cam
+		use_actor_camera_while_talking()
 	}
 
 	if r.IsKeyReleased(.SPACE) {
 		cur_dialogue.cur_idx += 1
-		if cur_dialogue.cur_idx >= len(cur_dialogue.lines) {
-			cur_dialogue.cur_idx = 0
+
+		idx_ok := cur_dialogue.cur_idx < len(cur_dialogue.lines)
+		// use actor camera while talking
+		if idx_ok {
+			use_actor_camera_while_talking()
+		} else {
+			//reset
+			cur_level().cam = cur_dialogue.cashed_cam
+			cur_dialogue = {}
 			main_actor.state = .IDLE
 		}
 	}
+}
+
+use_actor_camera_while_talking :: proc() {
+	speaker := cur_level().actors[get_dialogue_speaker_name()]
+	cam_ptrs := make([]^r.Camera3D, len(speaker.dialogue_cameras[:]))
+	for i := 0; i < len(cam_ptrs); i += 1 {
+		cam_ptrs[i] = &speaker.dialogue_cameras[i]
+	}
+	dial_cam_idx := rand.int_range(0, len(cam_ptrs))
+	cur_level().cam = cam_ptrs[dial_cam_idx]
 }

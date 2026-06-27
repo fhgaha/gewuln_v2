@@ -36,8 +36,6 @@ fxaa_intensity_loc: i32
 
 debug_lines: [dynamic]DebugLine
 
-
-cur_dialogue: Dialogue_Data
 interact_targets: [dynamic]Interactable
 interact_target_found: bool
 
@@ -286,20 +284,33 @@ draw_cameras :: proc() {
 			)
 		}
 	}
+
+	for _, &a in cur_level().actors {
+		for &c in a.dialogue_cameras {
+			if &c != cur_level().cam {
+				r.DrawCylinderWiresEx(
+					c.position,
+					c.position + r.Vector3Normalize(c.target - c.position),
+					0.02,
+					1,
+					8,
+					r.YELLOW,
+				)
+			}
+		}
+	}
 }
 
 draw_dialogue :: proc() {
 	if main_actor.state != .DIALOGUE do return
 	if len(cur_dialogue.lines) == 0 do return
 
-	speaker_name := cur_dialogue.lines[cur_dialogue.cur_idx].speaker
-	text := cur_dialogue.lines[cur_dialogue.cur_idx].text
-
 	// actor name
 	draw_text_with_border(
 		font = font,
-		text = speaker_name,
+		text = get_dialogue_speaker_name(),
 		size = FONT_SIZE_ACTOR_NAME,
+		pos_y = WINDOW_HEIGHT * 0.7,
 		spacing = FONT_SPACING,
 		text_color = r.BLACK,
 		border_color = r.WHITE,
@@ -309,8 +320,9 @@ draw_dialogue :: proc() {
 	// actor line
 	draw_text_with_border(
 		font = font,
-		text = text,
+		text = get_dialogue_text(),
 		size = FONT_SIZE_ACTOR_LINE,
+		pos_y = WINDOW_HEIGHT * 0.8,
 		spacing = FONT_SPACING,
 		text_color = r.RAYWHITE,
 		border_color = r.BLACK,
@@ -322,6 +334,7 @@ draw_text_with_border :: proc(
 	font: r.Font,
 	text: string,
 	size: f32,
+	pos_y: f32,
 	spacing: f32,
 	text_color: r.Color,
 	border_color: r.Color,
@@ -329,7 +342,7 @@ draw_text_with_border :: proc(
 ) {
 	text_c := strings.clone_to_cstring(text)
 	text_size := r.MeasureTextEx(font, text_c, FONT_SIZE_ACTOR_NAME, FONT_SPACING)
-	pos := vec2{WINDOW_WIDTH * 0.5 - text_size.x * 0.5, WINDOW_HEIGHT * 0.7}
+	pos := vec2{WINDOW_WIDTH * 0.5 - text_size.x * 0.5, pos_y}
 
 	// Loop through an 8-directional grid around the central position
 	for dx: f32 = -1; dx <= 1; dx += 1 {

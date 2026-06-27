@@ -1,8 +1,6 @@
 package core
 
-import "core:fmt"
 import "core:slice"
-import "core:strings"
 import r "vendor:raylib"
 
 Interactable_Type :: enum {
@@ -13,16 +11,6 @@ Interactable_Type :: enum {
 
 Door_Data :: struct {
 	connected_level_name: string,
-}
-
-Dialogue_Data :: struct {
-	lines:   []Dialogue_Line,
-	cur_idx: int,
-}
-
-Dialogue_Line :: struct {
-	speaker: string,
-	text:    string,
 }
 
 Interactable_Data_Union :: union {
@@ -53,15 +41,6 @@ interact :: proc() {
 	case Dialogue_Data:
 		second_actor := &cur_level().actors["cleaner_a"]
 		main_actor.state = .DIALOGUE
-
-		data := d
-		cur_dialogue = data
-
-		line := data.lines[data.cur_idx]
-		speaker := cur_level().actors[line.speaker]
-		text := line.text
-
-
 	case:
 	// no action or default
 	}
@@ -86,23 +65,4 @@ is_interactable_mesh :: proc(interactables: []Interactable, mesh_index: i32) -> 
 		if intr.mesh_index == mesh_index do return true
 	}
 	return false
-}
-
-run_dialogue :: proc(intr: Interactable, main_actor: ^Actor, second_actor: ^Actor) {
-	data := intr.data.(Dialogue_Data)
-	// print_pretty(data)
-	line := data.lines[data.cur_idx]
-
-	// here:  ["mona", "Hey, how's it going?"]
-	// here:  ["cleaner_a", "Busy day. Floor's not gonna mop itself."]
-	// here:  ["mona", "Fair enough."]
-	// here:  ["cleaner_a", "..."]
-
-	speaker := cur_level().actors[line.speaker]
-	text := line.text
-
-	data.cur_idx += 1
-	if data.cur_idx >= len(data.lines) {
-		data.cur_idx = 0
-	}
 }
