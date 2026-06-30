@@ -9,21 +9,20 @@ import "core:strings"
 import r "vendor:raylib"
 
 Actor :: struct {
-	initialised:           bool,
-	name:                  string,
-	pos:                   vec3,
-	yaw:                   f32, //in rads
-	speed, rot_speed:      f32,
-	model:                 r.Model,
-	bounding_box_original: r.BoundingBox,
-	bounding_box:          r.BoundingBox,
-	state:                 Actor_State,
-	animator:              Animator,
+	initialised:                         bool,
+	name:                                string,
+	pos:                                 vec3,
+	yaw:                                 f32, //in rads
+	speed, rot_speed:                    f32,
+	model:                               r.Model,
+	bounding_box_original, bounding_box: r.BoundingBox,
+	state:                               Actor_State,
+	animator:                            Animator,
 
 	//neck rotation
-	neck_bone_index:       i32,
-	neck_current_delta:    r.Quaternion,
-	dialogue_cameras:      [dynamic]r.Camera3D,
+	neck_bone_index:                     i32,
+	neck_current_delta:                  r.Quaternion,
+	dialogue_cameras:                    [dynamic]r.Camera3D,
 }
 
 Actor_State :: enum {

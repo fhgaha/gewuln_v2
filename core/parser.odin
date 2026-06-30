@@ -134,7 +134,9 @@ parse_camera3d_from_glb :: proc(
 	camera: r.Camera3D,
 	is_cur: bool,
 ) {
-	cam_idx := node["camera"].(json.Integer)
+	camera_node, camera_node_ok := node["camera"]
+	assert(camera_node_ok)
+	cam_idx := camera_node.(json.Integer)
 	cam_json := cameras_json[cam_idx].(json.Object)
 	fovy := cam_json["perspective"].(json.Object)["yfov"].(json.Float) * r.RAD2DEG
 	projection: r.CameraProjection
@@ -150,8 +152,9 @@ parse_camera3d_from_glb :: proc(
 	forward := r.Vector3RotateByQuaternion(BACKWARD, rotation) // BACKWARD = {0, 0, -1}
 	target := translation + forward
 
-	extras := node["extras"]
-	is_cur = extras != nil && extras.(json.Object)["is_cur"].(json.Boolean) == true
+	extras, extras_ok := node["extras"]
+	assert(extras_ok)
+	is_cur = extras.(json.Object)["is_cur"].(json.Boolean)
 
 	camera = r.Camera3D {
 		position   = translation,

@@ -63,7 +63,6 @@ create_level :: proc(level_table: ^toml.Table, actors: map[string]Actor) -> Leve
 	walk_area_mesh_idx: i32 = -1
 	walk_area_tris: [dynamic]tri3
 	spawn_positions: [dynamic]Actor_Spawn_Placement
-
 	cur_cam_name: string
 
 	room_glb_json := get_json_chunk_from_glb(room_glb_path)
@@ -82,9 +81,11 @@ create_level :: proc(level_table: ^toml.Table, actors: map[string]Actor) -> Leve
 				if is_cur {
 					cur_cam_name = name
 				}
-				if strings.contains(name, "gameplay") {
-					gameplay_cameras[name] = camera
-				}
+				assert(
+					strings.contains(name, "gameplay"),
+					"camera must contain \"gameplay\" in the name",
+				)
+				gameplay_cameras[name] = camera
 			}
 
 			is_interactable := strings.contains(name, "interactable")
@@ -114,13 +115,13 @@ create_level :: proc(level_table: ^toml.Table, actors: map[string]Actor) -> Leve
 				pos := parse_vec3_from_json(node.(json.Object), "translation")
 				rot := parse_quat_from_json(node.(json.Object), "rotation")
 				yaw := yaw_from_quat(rot)
-				extras := node.(json.Object)["extras"]
+				extras, extras_ok := node.(json.Object)["extras"]
+				assert(extras_ok)
 				actor_name: string
 				if extras != nil {
-					actor_name_ := extras.(json.Object)["actor_name"]
-					if actor_name_ != nil {
-						actor_name = actor_name_.(json.String)
-					}
+					actor_name_, an_ok := extras.(json.Object)["actor_name"]
+					assert(an_ok)
+					actor_name = actor_name_.(json.String)
 				}
 				append(&spawn_positions, Actor_Spawn_Placement{actor_name, pos, yaw})
 			}
@@ -152,6 +153,8 @@ create_level :: proc(level_table: ^toml.Table, actors: map[string]Actor) -> Leve
 		actor_update_yaw(&actors[spawn.actor_name], spawn.yaw)
 	}
 
+	// TODO check everything nessesery is initialized
+
 	level := Level {
 		name               = room_name,
 		cam                = cam,
@@ -173,11 +176,6 @@ destroy_level :: proc() {
 }
 
 load_level :: proc(lvl: ^Level) {
-	// set first level camera as current camera
-	for _, &cam in lvl.cameras {
-		lvl.cam = &cam
-		break
-	}
 }
 
 unload_level :: proc(lvl: ^Level) {
@@ -188,6 +186,8 @@ change_level :: proc(state: ^Game_State, next: ^Level) {
 	unload_level(cur_level())
 	state.cur_level_name = next.name
 	load_level(next)
+	
+	
 }
 
 cur_level :: proc() -> ^Level {
