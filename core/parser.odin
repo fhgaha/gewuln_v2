@@ -18,7 +18,7 @@ parse_interactable_from_glb :: proc(node: json.Object) -> Interactable {
 	}
 
 	return Interactable {
-		name       = node["name"].(json.String),
+		name       = strings.clone(node["name"].(json.String)),
 		pos        = pos,
 		mesh_index = -1, // these will be taken from loaded meshes
 		data       = data,
@@ -28,13 +28,14 @@ parse_interactable_from_glb :: proc(node: json.Object) -> Interactable {
 parse_interactable_type_from_json :: proc(node: json.Object) -> Interactable_Data_Union {
 	type_str, has_type := node["type"].(json.String)
 	if !has_type do return nil
-	
+
 	switch type_str {
 	case "door":
-		connected := node["connected_level"].(json.String)
-		return Door_Data{connected_level_name = connected}
+		connected, ok := node["connected_level"].(json.String)
+		assert(ok)
+		return Door_Data{connected_level_name = strings.clone(connected)}
 	case "dialogue":
-		return Dialogue_Data{}
+		return Dialogue_Data{} //will be filled up
 	}
 	return nil
 }

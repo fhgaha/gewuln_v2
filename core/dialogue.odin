@@ -5,9 +5,9 @@ import r "vendor:raylib"
 cur_dialogue: Dialogue_Data
 
 Dialogue_Data :: struct {
-	lines:   []Dialogue_Line,
-	cur_idx: int,
-	cashed_cam: ^r.Camera3D
+	lines:      []Dialogue_Line,
+	cur_idx:    int,
+	cashed_cam: ^r.Camera3D,
 }
 
 Dialogue_Line :: struct {

@@ -1,6 +1,8 @@
 package core
 
+import "core:fmt"
 import "core:slice"
+import "core:strings"
 import r "vendor:raylib"
 
 Interactable_Type :: enum {
@@ -36,9 +38,15 @@ interact :: proc() {
 	switch d in slice.last(interact_targets[:]).data {
 	case Door_Data:
 		assert(d.connected_level_name != "")
-		assert(d.connected_level_name in game_state.levels, "No such key in levels!")
+		assert(strings.contains(strings.to_lower(d.connected_level_name), "room"))
+		print(d)
+		assert(
+			d.connected_level_name in game_state.levels,
+			fmt.tprintf("No such key in levels: %v", d.connected_level_name),
+		)
 		change_level(&game_state, &game_state.levels[d.connected_level_name])
 	case Dialogue_Data:
+		// TODO
 		second_actor := &cur_level().actors["cleaner_a"]
 		main_actor.state = .DIALOGUE
 	case:

@@ -90,10 +90,15 @@ create_level :: proc(level_table: ^toml.Table, actors: map[string]Actor) -> Leve
 			is_interactable := strings.contains(name, "interactable")
 			if is_interactable {
 				intr := parse_interactable_from_glb(node.(json.Object))
-				_, intr_type_is_dialogue := intr.data.(Dialogue_Data)
-				if intr_type_is_dialogue {
-					intr.data = parse_dialogue_from_toml(level_table)
+
+				// TODO move this there ^
+				{
+					_, intr_type_is_dialogue := intr.data.(Dialogue_Data)
+					if intr_type_is_dialogue {
+						intr.data = parse_dialogue_from_toml(level_table)
+					}
 				}
+
 				append(&interactables, intr)
 			}
 
@@ -168,7 +173,11 @@ destroy_level :: proc() {
 }
 
 load_level :: proc(lvl: ^Level) {
-
+	// set first level camera as current camera
+	for _, &cam in lvl.cameras {
+		lvl.cam = &cam
+		break
+	}
 }
 
 unload_level :: proc(lvl: ^Level) {
@@ -177,8 +186,8 @@ unload_level :: proc(lvl: ^Level) {
 
 change_level :: proc(state: ^Game_State, next: ^Level) {
 	unload_level(cur_level())
-	load_level(next)
 	state.cur_level_name = next.name
+	load_level(next)
 }
 
 cur_level :: proc() -> ^Level {

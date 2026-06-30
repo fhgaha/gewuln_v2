@@ -98,6 +98,7 @@ create_actor :: proc(actor_table: ^toml.Table) -> (actor: Actor, ok: bool) {
 
 	// parse dialogue cameras
 	model_glb_json := get_json_chunk_from_glb(model_path)
+	defer json.destroy_value(model_glb_json)
 	cameras_json, cameras_json_ok := model_glb_json.(json.Object)["cameras"].(json.Array)
 	dialogue_cameras: [dynamic]r.Camera3D
 
