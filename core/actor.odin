@@ -1,38 +1,42 @@
 package core
 
 import "../packages/toml"
+import "core:encoding/json"
 import "core:fmt"
-import "core:math"
+import "core:math/rand"
+import "core:slice"
 import "core:strings"
 import r "vendor:raylib"
 
 Actor :: struct {
-	initialised:           bool,
-	name:                  string,
-	pos:                   vec3,
-	yaw:                   f32, //in rads
-	speed, rot_speed:      f32,
-	model:                 r.Model,
-	bounding_box_original: r.BoundingBox,
-	bounding_box:          r.BoundingBox,
-	state:                 Actor_State,
-	animator:              Animator,
+	initialised:                         bool,
+	name:                                string,
+	pos:                                 vec3,
+	yaw:                                 f32, //in rads
+	speed, rot_speed:                    f32,
+	model:                               r.Model,
+	bounding_box_original, bounding_box: r.BoundingBox,
+	state:                               Actor_State,
+	animator:                            Animator,
 
 	//neck rotation
-	neck_bone_index:       i32,
-	neck_current_delta:    r.Quaternion,
+	neck_bone_index:                     i32,
+	neck_current_delta:                  r.Quaternion,
+	dialogue_cameras:                    [dynamic]r.Camera3D,
 }
 
 Actor_State :: enum {
 	IDLE,
 	WALK,
 	INTERACT,
+	DIALOGUE,
 }
 
 actor_state_strings := [Actor_State]string {
 	.IDLE     = "idle",
 	.WALK     = "walk",
 	.INTERACT = "interact",
+	.DIALOGUE = "dialogue",
 }
 
 Input_State :: struct {
@@ -41,41 +45,42 @@ Input_State :: struct {
 	wants_interact: bool,
 }
 
-create_actor_from_toml :: proc(section: ^toml.Table) -> Actor {
-	actor_name := toml.get_string_panic(section, "main_actor", "name")
-	model_path := toml.get_string_panic(section, "main_actor", "model")
-	collider_path := toml.get_string_panic(section, "main_actor", "collider")
-	actor, ok := create_actor(
-		actor_name,
-		strings.clone_to_cstring(model_path),
-		strings.clone_to_cstring(collider_path),
-	)
-	assert(ok)
-	return actor
+create_actors_from_toml :: proc(toml_table: ^toml.Table) -> (actors: map[string]Actor) {
+	for a in toml_table["actors"].(^toml.List) {
+		actor_name := toml.get_string_panic(a.(^toml.Table), "name")
+		actor, ok := create_actor(a.(^toml.Table))
+		if !ok do panic(fmt.tprintf("couldnt create actor: %v", actor))
+		actors[actor_name] = actor
+	}
+	return
 }
 
-create_actor :: proc(
-	actor_name: string,
-	actor_path, collider_path: cstring,
-) -> (
-	actor: Actor,
-	ok: bool,
-) {
+create_actor :: proc(actor_table: ^toml.Table) -> (actor: Actor, ok: bool) {
+	actor_name := toml.get_string_panic(actor_table, "name")
+	model_path := toml.get_string_panic(actor_table, "model")
+	collider_path, coll_ok := toml.get_string(actor_table, "collider")
+	model_path_c := strings.clone_to_cstring(model_path)
+
 	// Load resources
-	actor_model := r.LoadModel(actor_path)
+	actor_model := r.LoadModel(model_path_c)
 	if !r.IsModelValid(actor_model) {
 		return {}, false
 	}
 
-	actor_coll_model := r.LoadModel(collider_path)
-	if !r.IsModelValid(actor_coll_model) {
-		r.UnloadModel(actor_model)
-		return {}, false
+	has_collider: bool
+	actor_coll_model: r.Model
+	if coll_ok && collider_path != "" {
+		actor_coll_model = r.LoadModel(strings.clone_to_cstring(collider_path))
+		has_collider = true
+		if !r.IsModelValid(actor_coll_model) {
+			r.UnloadModel(actor_model)
+			return {}, false
+		}
 	}
 
 	// Load animations
 	anim_count: i32
-	anims := r.LoadModelAnimations(actor_path, &anim_count)
+	anims := r.LoadModelAnimations(model_path_c, &anim_count)
 	if anims == nil || anim_count == 0 {
 		r.UnloadModel(actor_model)
 		r.UnloadModel(actor_coll_model)
@@ -89,6 +94,25 @@ create_actor :: proc(
 		anims       = anims,
 	}
 	fill_animation_names(&animator)
+
+	// parse dialogue cameras
+	model_glb_json := get_json_chunk_from_glb(model_path)
+	defer json.destroy_value(model_glb_json)
+	cameras_json, cameras_json_ok := model_glb_json.(json.Object)["cameras"].(json.Array)
+	dialogue_cameras: [dynamic]r.Camera3D
+
+	for node in model_glb_json.(json.Object)["nodes"].(json.Array) {
+		name_val := node.(json.Object)["name"]
+		if name_val != nil {
+			name := strings.to_lower(name_val.(json.String))
+			is_dialogue_camera :=
+				strings.contains(name, "camera") && strings.contains(name, "dialogue")
+			if is_dialogue_camera {
+				camera, camera_ok := parse_camera3d_from_glb(node.(json.Object), &cameras_json)
+				append(&dialogue_cameras, camera)
+			}
+		}
+	}
 
 	actor = Actor {
 		initialised           = true,
@@ -104,6 +128,7 @@ create_actor :: proc(
 		animator              = animator,
 		neck_bone_index       = -1,
 		neck_current_delta    = r.Quaternion(1),
+		dialogue_cameras      = dialogue_cameras,
 	}
 	ok = true
 	return
@@ -123,12 +148,23 @@ actor_orientation :: proc(actor: ^Actor) -> (fwd, left, up: vec3) {
 	return
 }
 
-actor_update_pos :: proc(actor: ^Actor, delta_pos: vec3) {
+actor_update_pos_and_yaw :: proc(actor: ^Actor, pos: vec3, yaw_deg: f32) {
+	actor_update_pos(actor, pos)
+	actor_update_yaw(actor, yaw_deg * r.DEG2RAD)
+}
+
+actor_update_pos :: proc(actor: ^Actor, new_pos: vec3) {
 	old_pos := actor.pos
-	actor.pos += delta_pos
-	actor.bounding_box.min += delta_pos
-	actor.bounding_box.max += delta_pos
-	
+	actor.pos = new_pos
+	delta := new_pos - old_pos
+	actor.bounding_box.min += delta
+	actor.bounding_box.max += delta
+
+	for &c in actor.dialogue_cameras {
+		c.position += delta
+		c.target += delta
+	}
+
 	if actor.pos != old_pos && .print_debug_info in flags {
 		fmt.println(actor.name, ": pos =", actor.pos)
 	}
@@ -143,31 +179,51 @@ actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
 	// rot := r.MatrixRotateY(actor.yaw)
 	// transl := r.MatrixTranslate(actor.pos.x, actor.pos.y, actor.pos.z)
 	// actor.model.transform = transl * rot
-	// just set transform to rotation since raylib in DrawModel multiplies position to model's transform
+	// just set transform to rotation since raylib in DrawModel multiplies position
+	// to model's transform
 	actor.model.transform = r.MatrixRotateY(new_yaw)
+
+	q := r.QuaternionFromAxisAngle(UP, new_yaw - old_yaw)
+	for &c in actor.dialogue_cameras {
+		c.position = actor.pos + r.Vector3RotateByQuaternion(c.position - actor.pos, q)
+		c.target = actor.pos + r.Vector3RotateByQuaternion(c.target - actor.pos, q)
+	}
 
 	if new_yaw != old_yaw && .print_debug_info in flags {
 		fmt.println(actor.name, ": yaw =", new_yaw * r.RAD2DEG)
 	}
 }
 
+// actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
+// 	old_yaw := actor.yaw
+// 	new_yaw := clamp_angle(yaw)
+// 	actor.yaw = new_yaw
+// 	actor.model.transform = r.MatrixRotateY(new_yaw)
+// 	delta := new_yaw - old_yaw
+
+// 	for &c in actor.dialogue_cameras {
+// 		q := r.QuaternionFromAxisAngle(UP, delta)
+// 		c.position = actor.pos + r.Vector3RotateByQuaternion(c.position - actor.pos, q)
+// 		c.target = actor.pos + r.Vector3RotateByQuaternion(c.target - actor.pos, q)
+// 	}
+
+// 	if new_yaw != old_yaw && .print_debug_info in flags {
+// 		fmt.println(actor.name, ": yaw =", new_yaw * r.RAD2DEG)
+// 	}
+// }
+
 //actor states
 
 handle_idle :: proc(dt: f32) {
 	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
-	actor_update_yaw(&main_actor, yaw)
+	actor_update_yaw(main_actor, yaw)
 
 	play_anim(&main_actor.animator, .IDLE)
 
 	// state transitions	
 	walk_cond := input.move_dir != 0
 
-	interact_trg, interact_tgr_found := get_interactable_colliding_actor(
-		cur_level().interactables[:],
-		&main_actor,
-	)
-
-	interact_cond := input.wants_interact && interact_tgr_found
+	interact_cond := input.wants_interact && interact_target_found
 	switch {
 	case walk_cond:
 		main_actor.state = .WALK
@@ -181,22 +237,18 @@ handle_idle :: proc(dt: f32) {
 
 handle_walk :: proc(dt: f32) {
 	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
-	actor_update_yaw(&main_actor, yaw)
+	actor_update_yaw(main_actor, yaw)
 
 	play_anim(&main_actor.animator, .WALK)
 
-	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(&main_actor)
+	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(main_actor)
 	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, cur_level().walk_area_tris[:])
-	actor_update_pos(&main_actor, dpos)
+	actor_update_pos(main_actor, main_actor.pos + dpos)
 
 
 	// state transitions
-	interact_trg, interact_trg_found := get_interactable_colliding_actor(
-		cur_level().interactables[:],
-		&main_actor,
-	)
 
-	interact_cond := interact_trg_found && input.wants_interact
+	interact_cond := interact_target_found && input.wants_interact
 	idle_cond := input.move_dir == 0
 	switch {
 	case interact_cond:
@@ -254,6 +306,8 @@ resolve_slide :: proc(desired: vec3, bb: r.BoundingBox, area: []tri3) -> (result
 
 
 handle_interact :: proc() {
+	assert(interact_target_found)
+
 	play_anim(&main_actor.animator, .INTERACT)
 
 	animation_ended := last_frame_reached(&main_actor.animator)
@@ -262,13 +316,19 @@ handle_interact :: proc() {
 		interact()
 	}
 
+
 	//state conditions	
+	dialogue, is_dialogue := slice.last(interact_targets[:]).data.(Dialogue_Data)
+	dialogue_cond := animation_ended && interact_target_found && is_dialogue
 	walk_cond := animation_ended && input.move_dir != 0
 	idle_cond := animation_ended
 	switch {
+	case dialogue_cond:
+		main_actor.state = .DIALOGUE
+		fmt.println(main_actor.name, ": handle_dialogue")
 	case walk_cond:
 		main_actor.state = .WALK
-		fmt.println(main_actor.name, ": handle_idle")
+		fmt.println(main_actor.name, ": handle_walk")
 	case idle_cond:
 		main_actor.state = .IDLE
 		fmt.println(main_actor.name, ": handle_idle")
@@ -284,7 +344,8 @@ get_interactable_colliding_actor :: proc(
 	found: bool,
 ) {
 	for &intr in interactables {
-		col := r.CheckCollisionBoxes(actor.bounding_box, r.GetModelBoundingBox(intr.model))
+		mesh := get_interactable_mesh(&intr)
+		col := r.CheckCollisionBoxes(actor.bounding_box, r.GetMeshBoundingBox(mesh))
 		if (col) {
 			append(&colliding, intr)
 		}
@@ -308,4 +369,44 @@ get_interactable_colliding_actor :: proc(
 
 	found = true
 	return
+}
+
+handle_dialogue :: proc() {
+	// here:  ["mona", "Hey, how's it going?"]
+	// here:  ["cleaner_a", "Busy day. Floor's not gonna mop itself."]
+	// here:  ["mona", "Fair enough."]
+	// here:  ["cleaner_a", "..."]
+
+	play_anim(&main_actor.animator, .IDLE)
+
+	if len(cur_dialogue.lines) == 0 {
+		cur_dialogue = slice.last(interact_targets[:]).data.(Dialogue_Data)
+		cur_dialogue.cashed_cam = cur_level().cam
+		use_actor_camera_while_talking()
+	}
+
+	if r.IsKeyReleased(.SPACE) {
+		cur_dialogue.cur_idx += 1
+
+		idx_ok := cur_dialogue.cur_idx < len(cur_dialogue.lines)
+		// use actor camera while talking
+		if idx_ok {
+			use_actor_camera_while_talking()
+		} else {
+			//reset
+			cur_level().cam = cur_dialogue.cashed_cam
+			cur_dialogue = {}
+			main_actor.state = .IDLE
+		}
+	}
+}
+
+use_actor_camera_while_talking :: proc() {
+	speaker := cur_level().actors[get_dialogue_speaker_name()]
+	cam_ptrs := make([]^r.Camera3D, len(speaker.dialogue_cameras[:]))
+	for i := 0; i < len(cam_ptrs); i += 1 {
+		cam_ptrs[i] = &speaker.dialogue_cameras[i]
+	}
+	dial_cam_idx := rand.int_range(0, len(cam_ptrs))
+	cur_level().cam = cam_ptrs[dial_cam_idx]
 }

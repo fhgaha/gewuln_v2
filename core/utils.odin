@@ -74,6 +74,10 @@ yaw_from_transform :: proc(m: r.Matrix) -> f32 {
 	return f32(yaw)
 }
 
+yaw_from_quat :: proc(q: r.Quaternion) -> f32 {
+	return yaw_from_transform(r.QuaternionToMatrix(q))
+}
+
 square_points_2d :: proc(min, max: vec2) -> [4]vec2 {
 	return {
 		min, // bottom-left
@@ -116,7 +120,7 @@ bounding_box_inside_walk_area :: proc(
 //
 // meshes
 //
-extract_tris :: proc(model: ^r.Model, out: ^[dynamic]tri3) {
+extract_tris :: proc(out: ^[dynamic]tri3, model: ^r.Model) {
 	tris: [dynamic]tri3
 	defer delete(tris)
 
@@ -146,76 +150,6 @@ extract_tris_from_mesh :: proc(m: ^r.Mesh, out: ^[dynamic]tri3) {
 }
 
 
-Custom_Properties :: struct {
-	actor_pos: vec3,
-	actor_yaw: f32,
-}
-
-load_custom_props_from_glb :: proc(glb_path: string) -> Custom_Properties {
-	json_data := get_json_chunk_from_glb(glb_path)
-	defer json.destroy_value(json_data)
-
-	transl: vec3
-	yaw: f32
-
-	for node in json_data.(json.Object)["nodes"].(json.Array) {
-		if node.(json.Object)["name"].(json.String) == "actor" {
-			tr := node.(json.Object)["translation"].(json.Array)
-
-			for i in 0 ..< 3 {
-				#partial switch v in tr[i] {
-				case json.Float:
-					transl[i] = f32(v)
-				case json.Integer:
-					transl[i] = f32(v)
-				}
-			}
-
-			// glb uses quaternions for rotations: "rotation":[0,0.7071068286895752,0,0.7071068286895752],
-			rotat := node.(json.Object)["rotation"].(json.Array)
-
-			rt: [4]f32
-			for i in 0 ..< 4 {
-				#partial switch v in rotat[i] {
-				case json.Float:
-					rt[i] = f32(v)
-				case json.Integer:
-					rt[i] = f32(v)
-				}
-			}
-
-			yaw = math.atan2(2 * (rt.w * rt.y + rt.x * rt.z), 1 - 2 * (rt.x * rt.x + rt.y * rt.y))
-
-			break
-		}
-	}
-
-	return Custom_Properties{actor_pos = transl, actor_yaw = yaw}
-}
-
-
-get_json_chunk_from_glb :: proc(glb_path: string) -> json.Value {
-	data, ok := os.read_entire_file(glb_path)
-	assert(ok)
-	defer delete(data)
-
-	// 4 bytes "glTF", 4 bytes version, 4 bytes glb length, 4 bytes json chunk length, 4 bytes "JSON". each symbol is 1 byte
-
-	// Cast a slice of bytes directly to a slice of u32, then take the first element
-	chunk_length := mem.reinterpret_copy(u32, raw_data(data[12:16]))
-	// chunk_type: u32 = mem.slice_data_cast([]u32, data[16:20])[0]
-
-	res, err := strings.clone_from_bytes(data[16:20])
-	assert(res == "JSON" && err == .None)
-
-	json_data := data[20:(20 + chunk_length)]
-
-	parsed, parsed_err := json.parse(json_data, json.DEFAULT_SPECIFICATION, parse_integers = true)
-	assert(parsed_err == .None)
-
-	return parsed
-}
-
 //
 // Helper to gather input in one place (e.g., in your main loop)
 //
@@ -231,9 +165,13 @@ print :: proc(args: ..any) {
 	fmt.println("here: ", args)
 }
 
+print_pretty :: proc(args: ..any) {
+	fmt.printf("here: %#v\n", args)
+}
+
 @(require_results)
-must :: proc(val: $T, ok: bool, loc := #caller_location) -> T {
-	if !ok do panic("Value is not ok!", loc)
+must :: proc(val: $T, ok: bool, msg := "Value is not ok!", loc := #caller_location) -> T {
+	if !ok do panic(msg, loc)
 	return val
 }
 

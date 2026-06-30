@@ -20,10 +20,6 @@ Game_State :: struct {
 	levels:         map[string]Level,
 }
 
-Actors_Names :: enum {
-	mona,
-}
-
 game_config_data := #load("../config.toml")
 game_config: ^toml.Table
 
@@ -31,20 +27,20 @@ flags: bit_set[Flags]
 input: Input_State
 font: r.Font
 game_state: Game_State
-main_actor: Actor
-actors: [Actors_Names]Actor // all actors including main actor
+main_actor: ^Actor
 accumulated_time: f32
 fxaa_intensity: f32 = 0.3
-
 render_target: r.RenderTexture2D
 fxaa_shader: r.Shader
 fxaa_intensity_loc: i32
 
 debug_lines: [dynamic]DebugLine
 
-main :: proc() {
-	flags = {.lock_cursor, .camera_debug, .show_gizmos, .print_debug_info}
+interact_targets: [dynamic]Interactable
+interact_target_found: bool
 
+
+main :: proc() {
 	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_RESIZABLE})
 
 	r.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "gewuln")
@@ -61,42 +57,19 @@ main :: proc() {
 	fxaa_intensity_loc = r.GetShaderLocation(fxaa_shader, "intensity")
 	r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
 
-	err1: toml.Error
-	game_config, err1 = toml.parse_data(game_config_data)
-	// game_config, err1 = toml.parse_file("config.toml")
-	assert(err1.type == .None, fmt.enum_value_to_string(err1.type) or_else "an error")
-
 	font = r.LoadFont("assets/fonts/centurygothic/centurygothic_bold.ttf")
 	r.SetTextureFilter(font.texture, .BILINEAR)
 	defer r.UnloadFont(font)
-
-
-	main_actor = create_actor_from_toml(game_config)
-	game_state.levels, game_state.cur_level_name = create_levels(game_config)
-
-	actor_update_pos(&main_actor, cur_level().actor.pos)
-	actor_update_yaw(&main_actor, cur_level().actor.yaw)
-
-
-	// testing
-	actor_update_pos(&main_actor, delta_pos = vec3{-4, 0, 4})
-
-	_, __ := get_interactable_colliding_actor(cur_level().interactables[:], &main_actor)
 
 	render_target = r.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT)
 	// r.SetTextureFilter(render_target.texture, .BILINEAR)
 	defer r.UnloadRenderTexture(render_target)
 
 
-	// searching neck bone index
-	for i in 0 ..< main_actor.model.boneCount {
-		bone_name := string(cast(cstring)&main_actor.model.bones[i].name[0])
-		if strings.contains(strings.to_lower(bone_name), "neck") {
-			fmt.printf("Found neck bone at index: %d\n", i)
-			main_actor.neck_bone_index = i
-		}
-	}
+	setup()
 
+	//testing
+	actor_update_pos_and_yaw(main_actor, vec3{-3, 0, -3}, 180)
 
 	for !r.WindowShouldClose() {
 		update()
@@ -108,9 +81,28 @@ main :: proc() {
 	r.CloseWindow()
 }
 
+setup :: proc() {
+	flags = {.lock_cursor, .camera_debug, .show_gizmos, .print_debug_info}
+
+	err: toml.Error
+	game_config, err = toml.parse_data(game_config_data)
+	assert(err.type == .None, fmt.enum_value_to_string(err.type) or_else "an error")
+
+	game_state.levels, game_state.cur_level_name = create_levels(game_config)
+	main_actor = &game_state.levels["test_room"].actors["mona"]
+
+	// searching neck bone index
+	for i in 0 ..< main_actor.model.boneCount {
+		bone_name := string(cast(cstring)&main_actor.model.bones[i].name[0])
+		if strings.contains(strings.to_lower(bone_name), "neck") {
+			fmt.printf("Found neck bone at index: %d\n", i)
+			main_actor.neck_bone_index = i
+		}
+	}
+}
+
 update :: proc() {
 	//fixed timestep (the "accumulator" pattern)
-	max_dt :: 0.25
 	dt := r.Clamp(r.GetFrameTime(), 0, max_dt)
 	accumulated_time += dt
 
@@ -118,9 +110,9 @@ update :: proc() {
 
 		if .paused in flags do break
 
+		//input
 		input = get_player_input()
 
-		//input
 		if r.IsKeyReleased(.ONE) do flags ~= {.small_res}
 		if r.IsKeyReleased(.TWO) do flags ~= {.show_gizmos}
 		if r.IsKeyReleased(.THREE) {
@@ -138,8 +130,14 @@ update :: proc() {
 			fmt.println("fxaa_intensity: ", fxaa_intensity)
 		}
 
+		interact_targets, interact_target_found = get_interactable_colliding_actor(
+			cur_level().interactables[:],
+			main_actor,
+		)
 
 		switch main_actor.state {
+		case .DIALOGUE:
+			handle_dialogue()
 		case .IDLE:
 			handle_idle(DT)
 		case .WALK:
@@ -149,7 +147,9 @@ update :: proc() {
 		}
 
 		//update
-		actor_anim_update(&main_actor)
+		for k, &v in cur_level().actors {
+			actor_anim_update(&v)
+		}
 		update_cam(DT)
 
 		accumulated_time -= DT
@@ -185,6 +185,7 @@ draw :: proc() {
 			render_3d_scene()
 		}
 
+		draw_dialogue()
 		draw_fps()
 	}
 	r.EndDrawing()
@@ -193,14 +194,25 @@ draw :: proc() {
 render_3d_scene :: proc() {
 	r.ClearBackground(DARK)
 
-	r.BeginMode3D(cur_level().cam)
+	r.BeginMode3D(cur_level().cam^)
 	{
-		r.DrawModel(cur_level().room, vec3{0, 0, 0}, 1, r.GRAY)
+		// draw level objects
+		for i in 0 ..< cur_level().room.meshCount {
+			if is_interactable_mesh(cur_level().interactables[:], i) do continue
+			dont_draw_walk_area :=
+				cur_level().walk_area_mesh_idx != -1 && i32(i) == cur_level().walk_area_mesh_idx
+			if dont_draw_walk_area do continue
+			r.DrawMesh(
+				cur_level().room.meshes[i],
+				cur_level().room.materials[cur_level().room.meshMaterial[i]],
+				r.Matrix(1),
+			)
+		}
 
-		r.DrawModel(main_actor.model, main_actor.pos, 1, r.WHITE)
-		// r.DrawModelWires(actor.model, actor.pos, 1, r.GREEN)
-
-		r.DrawTriangle3D({1, 1, 1}, {0, 0, 0}, {-1, -1, -1}, r.RED)
+		// draw actors
+		for k, &v in cur_level().actors {
+			r.DrawModel(v.model, v.pos, 1, r.WHITE)
+		}
 
 		if .show_gizmos in flags {
 			draw_interactables()
@@ -209,14 +221,21 @@ render_3d_scene :: proc() {
 
 			draw_walking_area()
 			draw_gizmo()
+			draw_cameras()
 			draw_debug_lines()
 		}
-
-
 	}
 	r.EndMode3D()
 }
 
+draw_interactables :: proc(color: r.Color = r.RED) {
+	for intr in cur_level().interactables {
+		bb := r.GetMeshBoundingBox(cur_level().room.meshes[intr.mesh_index])
+		r.DrawBoundingBox(bb, color)
+		center := (bb.max + bb.min) * 0.5
+		r.DrawSphereWires(center, 0.1, 3, 4, color)
+	}
+}
 
 draw_gizmo :: proc() {
 	dist := r.Vector3Distance(cur_level().cam.position, vec3{0, 0, 0})
@@ -225,22 +244,12 @@ draw_gizmo :: proc() {
 	r.DrawCylinderEx(vec3{0, 0, 0}, vec3{0, 0, 1} * dist, 0.02, 0.02, 2, r.BLUE)
 }
 
-draw_fps :: proc() {
-	r.DrawTextEx(
-		font,
-		text = r.TextFormat("FPS: %d", r.GetFPS()),
-		position = 0,
-		fontSize = 36,
-		spacing = 0,
-		tint = r.ORANGE,
-	)
-}
-
 draw_walking_area :: proc() {
+	color := r.SKYBLUE
 	for &tr in cur_level().walk_area_tris {
-		r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, r.SKYBLUE)
-		r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, r.SKYBLUE)
-		r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, r.SKYBLUE)
+		r.DrawCylinderEx(tr[0], tr[1], 0.02, 0.02, 2, color)
+		r.DrawCylinderEx(tr[1], tr[2], 0.02, 0.02, 2, color)
+		r.DrawCylinderEx(tr[2], tr[0], 0.02, 0.02, 2, color)
 	}
 }
 
@@ -249,4 +258,103 @@ draw_debug_lines :: proc() {
 		r.DrawLine3D(l.start, l.end, l.color)
 	}
 	clear(&debug_lines)
+}
+
+draw_fps :: proc() {
+	r.DrawTextEx(
+		font,
+		text = r.TextFormat("FPS: %d", r.GetFPS()),
+		position = 0,
+		fontSize = 24,
+		spacing = 0,
+		tint = r.ORANGE,
+	)
+}
+
+draw_cameras :: proc() {
+	for _, &c in cur_level().cameras {
+		if &c != cur_level().cam {
+			r.DrawCylinderWiresEx(
+				c.position,
+				c.position + r.Vector3Normalize(c.target - c.position),
+				0.02,
+				1,
+				8,
+				r.YELLOW,
+			)
+		}
+	}
+
+	for _, &a in cur_level().actors {
+		for &c in a.dialogue_cameras {
+			if &c != cur_level().cam {
+				r.DrawCylinderWiresEx(
+					c.position,
+					c.position + r.Vector3Normalize(c.target - c.position),
+					0.02,
+					1,
+					8,
+					r.YELLOW,
+				)
+			}
+		}
+	}
+}
+
+draw_dialogue :: proc() {
+	if main_actor.state != .DIALOGUE do return
+	if len(cur_dialogue.lines) == 0 do return
+
+	// actor name
+	draw_text_with_border(
+		font = font,
+		text = get_dialogue_speaker_name(),
+		size = FONT_SIZE_ACTOR_NAME,
+		pos_y = WINDOW_HEIGHT * 0.7,
+		spacing = FONT_SPACING,
+		text_color = r.BLACK,
+		border_color = r.WHITE,
+		border_thickness = BORDER_THICKNESS,
+	)
+
+	// actor line
+	draw_text_with_border(
+		font = font,
+		text = get_dialogue_text(),
+		size = FONT_SIZE_ACTOR_LINE,
+		pos_y = WINDOW_HEIGHT * 0.8,
+		spacing = FONT_SPACING,
+		text_color = r.RAYWHITE,
+		border_color = r.BLACK,
+		border_thickness = BORDER_THICKNESS,
+	)
+}
+
+draw_text_with_border :: proc(
+	font: r.Font,
+	text: string,
+	size: f32,
+	pos_y: f32,
+	spacing: f32,
+	text_color: r.Color,
+	border_color: r.Color,
+	border_thickness: f32,
+) {
+	text_c := strings.clone_to_cstring(text)
+	text_size := r.MeasureTextEx(font, text_c, FONT_SIZE_ACTOR_NAME, FONT_SPACING)
+	pos := vec2{WINDOW_WIDTH * 0.5 - text_size.x * 0.5, pos_y}
+
+	// Loop through an 8-directional grid around the central position
+	for dx: f32 = -1; dx <= 1; dx += 1 {
+		for dy: f32 = -1; dy <= 1; dy += 1 {
+			if dx == 0 && dy == 0 do continue // Skip center for now
+
+			// Calculate the outer perimeter boundary
+			offset := vec2{dx * border_thickness, dy * border_thickness}
+			r.DrawTextEx(font, text_c, pos + offset, size, spacing, border_color)
+		}
+	}
+
+	// Finally, layer the pristine text directly over the core center
+	r.DrawTextEx(font, text_c, pos, size, spacing, text_color)
 }

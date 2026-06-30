@@ -1,5 +1,8 @@
 package core
 
+import "core:fmt"
+import "core:slice"
+import "core:strings"
 import r "vendor:raylib"
 
 Interactable_Type :: enum {
@@ -12,18 +15,16 @@ Door_Data :: struct {
 	connected_level_name: string,
 }
 
-Dialogue_Data :: struct {}
-
 Interactable_Data_Union :: union {
 	Door_Data,
 	Dialogue_Data,
 }
 
 Interactable :: struct {
-	name:  string,
-	type:  Interactable_Type,
-	model: r.Model,
-	data:  Interactable_Data_Union,
+	name:       string,
+	pos:        vec3,
+	mesh_index: i32,
+	data:       Interactable_Data_Union,
 }
 
 @(private = "file")
@@ -34,21 +35,26 @@ Interactables_Naming_Table :: [?]struct {
 
 
 interact :: proc() {
-	for intr in cur_level().intersected_interactables {
-		switch d in intr.data {
-		case Door_Data:
-			assert(d.connected_level_name != "")
-			assert(d.connected_level_name in game_state.levels, "No such key in levels!")
-			change_level(&game_state, &game_state.levels[d.connected_level_name])
-		case Dialogue_Data:
-
-		case:
-		// no action or default
-		}
+	switch d in slice.last(interact_targets[:]).data {
+	case Door_Data:
+		assert(d.connected_level_name != "")
+		assert(strings.contains(strings.to_lower(d.connected_level_name), "room"))
+		print(d)
+		assert(
+			d.connected_level_name in game_state.levels,
+			fmt.tprintf("No such key in levels: %v", d.connected_level_name),
+		)
+		change_level(&game_state, &game_state.levels[d.connected_level_name])
+	case Dialogue_Data:
+		// TODO
+		second_actor := &cur_level().actors["cleaner_a"]
+		main_actor.state = .DIALOGUE
+	case:
+	// no action or default
 	}
 }
 
-string_to_interactable :: proc(str: string) -> (Interactable_Type, bool) {
+string_to_interactable_type :: proc(str: string) -> (Interactable_Type, bool) {
 	for entry in Interactables_Naming_Table {
 		if entry.str == str {
 			return entry.type, true
@@ -57,13 +63,14 @@ string_to_interactable :: proc(str: string) -> (Interactable_Type, bool) {
 	return .None, false
 }
 
-draw_interactables :: proc(color: r.Color = r.RED) {
-	for intr in cur_level().interactables {
-		r.DrawModelWires(intr.model, pos_from_transform(intr.model.transform), 1, color)
-	}
+get_interactable_center :: proc(interactable: ^Interactable) -> vec3 {
+	bb := r.GetMeshBoundingBox(cur_level().room.meshes[interactable.mesh_index])
+	return (bb.min + bb.max) * 0.5
 }
 
-get_interactable_center :: proc(interactable: ^Interactable) -> vec3 {
-	bb := r.GetModelBoundingBox(interactable.model)
-	return (bb.min + bb.max) * 0.5
+is_interactable_mesh :: proc(interactables: []Interactable, mesh_index: i32) -> bool {
+	for intr in interactables {
+		if intr.mesh_index == mesh_index do return true
+	}
+	return false
 }

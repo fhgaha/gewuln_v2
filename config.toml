@@ -1,57 +1,29 @@
 first_level_name = "test_room"
 # first_level_name = "another_test_room"
 
-[main_actor]
+[[actors]]
 name     = "mona"
 model    = "assets/models/mona_sax/export/glb/mona.glb"
 collider = "assets/models/mona_sax/export/glb/collider.glb"
 
-[[levels]]
-name          = "test_room"
-room_glb      = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
-walk_area_glb = "assets/models/test_rooms/export/test_floor/glb/walk_area.glb"
+[[actors]]
+name  = "cleaner_a"
+model = "assets/models/cleaner_a/export/cleaner_a.glb"
 
-	#TODO use camera from blender
-	[levels.camera]
-	pos    = [1.0, 2.0, 4.0]
-	target = [0.0, 1.0, 0.0]
-
-	[[levels.interactables]]
-	type = "door"
-	name = "interactable_h_half_door"
-	glb  = "assets/models/test_rooms/export/test_floor/glb/interactable_h_half.glb"
-		[levels.interactables.data]
-		connected_lvl_name = "another_test_room"
-
-	[[levels.interactables]]
-	type = "dialogue"
-	name = "interactable_h_2_dialogue"
-	glb  = "assets/models/test_rooms/export/test_floor/glb/interactable_h_2.glb"
-
-		[levels.interactables.data]
-
-			[[levels.interactables.data.lines]]
-			character = "bob"
-			text      = "Well, it's because the sunlight interacts with the atmosphere…"
-			direction = "smiling"
-
-			[[levels.interactables.data.lines]]
-			character = "alice"
-			text      = "I never knew physics could be so poetic."
-			direction = "gazing at the sky"
 
 [[levels]]
-name          = "another_test_room"
-room_glb      = "assets/models/another_test_room/export/glb/room.glb"
-walk_area_glb = "assets/models/another_test_room/export/glb/walk_area.glb"
+name     = "test_room"
+room_glb = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
 
-	[levels.camera]
-	pos    = [5.0, 3.0, 10.0] # not used
-	target = [0.0, 0.0, 0.0]  # not used
+	[[levels.dialogues]]
+	id = "cleaner_dialog"	# must match interactable
+	lines = [
+		{ speaker = "mona", text = "Hey, how's it going?" },
+		{ speaker = "cleaner_a", text = "Busy day. Floor's not gonna mop itself." },
+		{ speaker = "mona", text = "Fair enough." },
+		{ speaker = "cleaner_a", text = "..." },
+	]
 
-	[[levels.interactables]]
-	#TODO mock here
-	type = "none"
-	name = "rusty_lever"
-	glb  = "assets/models/another_test_room/export/glb/walk_area.glb"
-		[levels.interactables.data]
+[[levels]]
+name     = "another_test_room"
+room_glb = "assets/models/another_test_room/export/glb/another_test_room.glb"

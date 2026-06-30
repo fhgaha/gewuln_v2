@@ -1,163 +1,181 @@
 package core
 
 import "../packages/toml"
+import "core:encoding/json"
 import "core:fmt"
-import "core:mem"
+import "core:math"
 import "core:strings"
 import r "vendor:raylib"
 
 
 Level :: struct {
-	name:                     string,
-	cam:                      r.Camera3D,
-	room:                     r.Model,
-	walk_area:                r.Model,
-	walk_area_tris:           [dynamic]tri3,
-	interactables:            [dynamic]Interactable,
-	actor:                    struct {
-		pos: vec3,
-		yaw: f32,
-	},
-	intersected_interactables: [dynamic]Interactable, //currently colliding with main actor interactables
+	name:                      string,
+	cam:                       ^r.Camera3D,
+	cameras:                   map[string]r.Camera3D,
+	room:                      r.Model,
+	walk_area_mesh_idx:        i32,
+	walk_area_tris:            [dynamic]tri3,
+	interactables:             [dynamic]Interactable,
+	spawn_positions:           [dynamic]Actor_Spawn_Placement,
+	intersected_interactables: [dynamic]Interactable, //intersected by main actor
+	actors:                    map[string]Actor, // all actors including main actor
+}
+
+Actor_Spawn_Placement :: struct {
+	actor_name: string,
+	pos:        vec3,
+	yaw:        f32,
 }
 
 create_levels :: proc(
-	section: ^toml.Table,
+	toml_table: ^toml.Table,
 ) -> (
 	levels: map[string]Level,
 	first_level_name: string,
 ) {
-	levels_table, ok2 := toml.get_list(section, "levels"); assert(ok2)
+	levels_table: ^toml.List
+	ok: bool
+	levels_table, ok = toml.get_list(toml_table, "levels"); assert(ok)
+	first_level_name, ok = toml.get_string(toml_table, "first_level_name"); assert(ok)
 
-	ok1: bool
-	first_level_name, ok1 = toml.get_string(section, "first_level_name"); assert(ok1)
+	actors := create_actors_from_toml(game_config)
 
 	for lvl_table, i in levels_table {
-		lvl := create_level(lvl_table.(^toml.Table))
+		lvl := create_level(lvl_table.(^toml.Table), actors)
 		levels[lvl.name] = lvl
 	}
 	return
 }
 
-create_level :: proc(level_table: ^toml.Table) -> Level {
-
-	// camera
-
-	cam_pos_table := must(toml.get_list(level_table, "camera", "pos"))
-	cam_pos: [3]f32
-	for i in 0 ..< 3 {
-		#partial switch v in cam_pos_table[i] {
-		case i64:
-		case f64:
-			cam_pos[i] = f32(v)
-		}
-	}
-
-	cam_target_table := must(toml.get_list(level_table, "camera", "target"))
-
-	cam_target: [3]f32
-	for i in 0 ..< 3 {
-		#partial switch v in cam_target_table[i] {
-		case i64:
-		case f64:
-			cam_target[i] = f32(v)
-		}
-	}
+create_level :: proc(level_table: ^toml.Table, actors: map[string]Actor) -> Level {
 
 	// room
 
 	room_name := must(toml.get_string(level_table, "name"))
-
-	room_glb_str := must(toml.get_string(level_table, "room_glb"))
-	room_glb_cstr := strings.clone_to_cstring(room_glb_str)
-	room := r.LoadModel(room_glb_cstr)
-	delete(room_glb_cstr)
+	room_glb_path := must(toml.get_string(level_table, "room_glb"))
+	room := r.LoadModel(strings.clone_to_cstring(room_glb_path))
 
 
-	// walk area
+	// parse blender objects
 
-	walk_area_glb_str := must(toml.get_string(level_table, "walk_area_glb"))
-	walk_area_glb_cstr := strings.clone_to_cstring(walk_area_glb_str)
-	walk_area := r.LoadModel(walk_area_glb_cstr)
-	delete(walk_area_glb_cstr)
-
-
-	walk_area_tris: [dynamic]tri3
-	extract_tris(&walk_area, &walk_area_tris)
-	// assert(len(walk_area_tris) > 0)
-
-	// interactables
-
+	gameplay_cameras: map[string]r.Camera3D
 	interactables: [dynamic]Interactable
+	walk_area_mesh_idx: i32 = -1
+	walk_area_tris: [dynamic]tri3
+	spawn_positions: [dynamic]Actor_Spawn_Placement
+	cur_cam_name: string
 
-	interactables_table := must(toml.get_list(level_table, "interactables"))
-	for intr in interactables_table {
-		intr_fields_table := intr.(^toml.Table)
-		intr_name_str := must(toml.get_string(intr_fields_table, "name"))
-		intr_type, ok := string_to_interactable(
-			must(toml.get_string(intr_fields_table, "type")),
-		); assert(ok)
-		glb_toml_cstr := strings.clone_to_cstring(must(toml.get_string(intr_fields_table, "glb")))
-		data_table := must(toml.get_table(intr_fields_table, "data"))
+	room_glb_json := get_json_chunk_from_glb(room_glb_path)
+	defer json.destroy_value(room_glb_json)
+	cameras_json, cameras_json_ok := room_glb_json.(json.Object)["cameras"].(json.Array)
+	assert(cameras_json_ok, "level must have a camera")
 
-		intr_data: Interactable_Data_Union
+	for node in room_glb_json.(json.Object)["nodes"].(json.Array) {
+		name_val := node.(json.Object)["name"]
+		if name_val != nil {
+			name := strings.to_lower(name_val.(json.String))
 
-		switch intr_type {
-		case .None:
-		case .Door:
-			intr_data = Door_Data {
-				connected_level_name = must(toml.get_string(data_table, "connected_lvl_name")),
+			is_camera := cameras_json_ok && strings.contains(name, "camera")
+			if is_camera {
+				camera, is_cur := parse_camera3d_from_glb(node.(json.Object), &cameras_json)
+				if is_cur {
+					cur_cam_name = name
+				}
+				assert(
+					strings.contains(name, "gameplay"),
+					"camera must contain \"gameplay\" in the name",
+				)
+				gameplay_cameras[name] = camera
 			}
-		case .Dialogue:
-		case:
-		}
 
-		append(
-			&interactables,
-			Interactable {
-				name = intr_name_str,
-				type = intr_type,
-				model = r.LoadModel(glb_toml_cstr),
-				data = intr_data,
-			},
-		)
-		delete(glb_toml_cstr)
+			is_interactable := strings.contains(name, "interactable")
+			if is_interactable {
+				intr := parse_interactable_from_glb(node.(json.Object))
+
+				// TODO move this there ^
+				{
+					_, intr_type_is_dialogue := intr.data.(Dialogue_Data)
+					if intr_type_is_dialogue {
+						intr.data = parse_dialogue_from_toml(level_table)
+					}
+				}
+
+				append(&interactables, intr)
+			}
+
+			is_walk_area := strings.contains(name, "walk_area")
+			if is_walk_area {
+				mesh_idx_raw := node.(json.Object)["mesh"].(json.Integer)
+				walk_area_mesh_idx = i32(mesh_idx_raw)
+				extract_tris_from_mesh(&room.meshes[walk_area_mesh_idx], &walk_area_tris)
+			}
+
+			is_spawn_pos := strings.contains(name, "spawn_pos")
+			if is_spawn_pos {
+				pos := parse_vec3_from_json(node.(json.Object), "translation")
+				rot := parse_quat_from_json(node.(json.Object), "rotation")
+				yaw := yaw_from_quat(rot)
+				extras, extras_ok := node.(json.Object)["extras"]
+				assert(extras_ok)
+				actor_name: string
+				if extras != nil {
+					actor_name_, an_ok := extras.(json.Object)["actor_name"]
+					assert(an_ok)
+					actor_name = actor_name_.(json.String)
+				}
+				append(&spawn_positions, Actor_Spawn_Placement{actor_name, pos, yaw})
+			}
+		}
 	}
 
-	// custom props
+	assert(cur_cam_name != "", cur_cam_name)
+	cam := &gameplay_cameras[cur_cam_name]
 
-	assert(main_actor.initialised, "actor must be initialised before placing it into a room")
-	custom_props := load_custom_props_from_glb(room_glb_str)
+	// set mesh idx for intereactables
+	for i in 0 ..< room.meshCount {
+		m := room.meshes[i]
+		bb := r.GetMeshBoundingBox(m)
+		center := (bb.min + bb.max) * 0.5
+
+		for &intr in interactables {
+			if intr.mesh_index != -1 do continue
+			if r.Vector3Distance(center, intr.pos) >= 0.1 do continue
+			intr.mesh_index = i32(i)
+		}
+	}
+	for intr in interactables {
+		assert(intr.mesh_index != -1, "interactable not matched to any mesh")
+	}
+
+	// TODO second level wipes actors?
+	for spawn in spawn_positions {
+		actor_update_pos(&actors[spawn.actor_name], spawn.pos)
+		actor_update_yaw(&actors[spawn.actor_name], spawn.yaw)
+	}
+
+	// TODO check everything nessesery is initialized
 
 	level := Level {
-		name = room_name,
-		cam = r.Camera3D {
-			position = cam_pos,
-			target = cam_target,
-			up = UP,
-			fovy = FOV_DEG / 2,
-			projection = .PERSPECTIVE,
-		},
-		room = room,
-		walk_area = walk_area,
-		walk_area_tris = walk_area_tris,
-		interactables = interactables,
-		actor = {pos = custom_props.actor_pos, yaw = custom_props.actor_yaw},
+		name               = room_name,
+		cam                = cam,
+		cameras            = gameplay_cameras,
+		room               = room,
+		walk_area_mesh_idx = walk_area_mesh_idx,
+		walk_area_tris     = walk_area_tris,
+		interactables      = interactables,
+		spawn_positions    = spawn_positions,
+		actors             = actors,
 	}
 
 	return level
 }
+
 
 destroy_level :: proc() {
 
 }
 
 load_level :: proc(lvl: ^Level) {
-	// do this once at start in case actor appeared inside of interactable
-	_, __ := get_interactable_colliding_actor(
-		cur_level().interactables[:],
-		&main_actor,
-	)
 }
 
 unload_level :: proc(lvl: ^Level) {
@@ -166,8 +184,10 @@ unload_level :: proc(lvl: ^Level) {
 
 change_level :: proc(state: ^Game_State, next: ^Level) {
 	unload_level(cur_level())
-	load_level(next)
 	state.cur_level_name = next.name
+	load_level(next)
+	
+	
 }
 
 cur_level :: proc() -> ^Level {
@@ -181,4 +201,56 @@ cur_level :: proc() -> ^Level {
 	}
 
 	return level_ptr
+}
+
+get_interactable_mesh :: proc(interactable: ^Interactable) -> r.Mesh {
+	return cur_level().room.meshes[interactable.mesh_index]
+}
+
+// shouldnt use this. just load levels with characters placed
+@(private = "file")
+fill_actor_placements :: proc(
+	actors_placements_to_fill: ^[dynamic]Actor_Spawn_Placement,
+	node: json.Value,
+	value: string,
+) {
+	value_ := strings.to_lower(value)
+	name_value := node.(json.Object)["name"].(json.String)
+	name_value_ := strings.to_lower(name_value)
+	if strings.contains(name_value, value_) {
+		ap: Actor_Spawn_Placement
+
+		tr := node.(json.Object)["translation"]
+		if tr != nil {
+			for i in 0 ..< 3 {
+				#partial switch v in tr.(json.Array)[i] {
+				case json.Float:
+					ap.pos[i] = f32(v)
+				case json.Integer:
+					ap.pos[i] = f32(v)
+				}
+			}
+		}
+
+		// glb uses quaternions for rotations: "rotation":[0,0.7071068286895752,0,0.7071068286895752],
+		rot_val := node.(json.Object)["rotation"]
+		quat: [4]f32
+		if rot_val != nil {
+			for i in 0 ..< 4 {
+				#partial switch v in rot_val.(json.Array)[i] {
+				case json.Float:
+					quat[i] = f32(v)
+				case json.Integer:
+					quat[i] = f32(v)
+				}
+			}
+		}
+
+		ap.yaw = math.atan2(
+			2 * (quat.w * quat.y + quat.x * quat.z),
+			1 - 2 * (quat.x * quat.x + quat.y * quat.y),
+		)
+
+		append(actors_placements_to_fill, ap)
+	}
 }
