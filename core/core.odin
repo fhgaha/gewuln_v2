@@ -103,11 +103,16 @@ setup :: proc() {
 
 update :: proc() {
 	//fixed timestep (the "accumulator" pattern)
+
+	speed_up: f32 = 1
+	if r.IsKeyDown(.LEFT_SHIFT) {
+		speed_up = 2
+	}
+
 	dt := r.Clamp(r.GetFrameTime(), 0, max_dt)
-	accumulated_time += dt
+	accumulated_time += dt * speed_up
 
 	for accumulated_time >= DT {
-
 		if .paused in flags do break
 
 		//input
@@ -153,6 +158,7 @@ update :: proc() {
 		update_cam(DT)
 
 		accumulated_time -= DT
+		// accumulated_time -= DT * c
 
 	}
 }

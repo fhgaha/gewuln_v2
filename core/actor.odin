@@ -236,12 +236,15 @@ handle_idle :: proc(dt: f32) {
 
 
 handle_walk :: proc(dt: f32) {
-	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
+	dt_ := dt
+	
+	
+	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt_
 	actor_update_yaw(main_actor, yaw)
 
 	play_anim(&main_actor.animator, .WALK)
 
-	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(main_actor)
+	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt_ * actor_dir(main_actor)
 	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, cur_level().walk_area_tris[:])
 	actor_update_pos(main_actor, main_actor.pos + dpos)
 
