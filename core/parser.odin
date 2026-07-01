@@ -9,12 +9,12 @@ import "core:os"
 import "core:strings"
 import r "vendor:raylib"
 
-parse_interactable_from_glb :: proc(node: json.Object) -> Interactable {
+parse_interactable_from_glb :: proc(node: json.Object, level_toml: ^toml.Table) -> Interactable {
 	pos := parse_vec3_from_json(node, "translation")
 	custom_props := node["extras"]
 	data: Interactable_Data_Union
 	if custom_props != nil {
-		data = parse_interactable_type_from_json(custom_props.(json.Object))
+		data = parse_interactable_data(custom_props.(json.Object), level_toml)
 	}
 
 	return Interactable {
@@ -25,7 +25,10 @@ parse_interactable_from_glb :: proc(node: json.Object) -> Interactable {
 	}
 }
 
-parse_interactable_type_from_json :: proc(node: json.Object) -> Interactable_Data_Union {
+parse_interactable_data :: proc(
+	node: json.Object,
+	level_toml: ^toml.Table,
+) -> Interactable_Data_Union {
 	type_str, has_type := node["type"].(json.String)
 	if !has_type do return nil
 
@@ -35,7 +38,7 @@ parse_interactable_type_from_json :: proc(node: json.Object) -> Interactable_Dat
 		assert(ok)
 		return Door_Data{connected_level_name = strings.clone(connected)}
 	case "dialogue":
-		return Dialogue_Data{} //will be filled up
+		return parse_dialogue_from_toml(level_toml)
 	}
 	return nil
 }
@@ -47,10 +50,10 @@ parse_dialogue_from_toml :: proc(level_table: ^toml.Table) -> Dialogue_Data {
 	for elem in dialogues_list {
 		id := toml.get_string_panic(elem.(^toml.Table), "id")
 		lines := toml.get_list_panic(elem.(^toml.Table), "lines")
-		for l, i in lines {
+		for line, i in lines {
 			dl := Dialogue_Line {
-				toml.get_string_panic(l.(^toml.Table), "speaker"),
-				toml.get_string_panic(l.(^toml.Table), "text"),
+				toml.get_string_panic(line.(^toml.Table), "speaker"),
+				toml.get_string_panic(line.(^toml.Table), "text"),
 			}
 			append(&dd_lines, dl)
 		}
@@ -58,7 +61,6 @@ parse_dialogue_from_toml :: proc(level_table: ^toml.Table) -> Dialogue_Data {
 
 	return Dialogue_Data{lines = dd_lines[:]}
 }
-
 
 parse_vec3_from_json :: proc(node: json.Object, key: string) -> vec3 {
 	tr := node["translation"]

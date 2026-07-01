@@ -47,12 +47,12 @@ create_levels :: proc(
 	return
 }
 
-create_level :: proc(level_table: ^toml.Table, actors: map[string]Actor) -> Level {
+create_level :: proc(level_toml: ^toml.Table, actors: map[string]Actor) -> Level {
 
 	// room
 
-	room_name := must(toml.get_string(level_table, "name"))
-	room_glb_path := must(toml.get_string(level_table, "room_glb"))
+	room_name := must(toml.get_string(level_toml, "name"))
+	room_glb_path := must(toml.get_string(level_toml, "room_glb"))
 	room := r.LoadModel(strings.clone_to_cstring(room_glb_path))
 
 
@@ -90,15 +90,12 @@ create_level :: proc(level_table: ^toml.Table, actors: map[string]Actor) -> Leve
 
 			is_interactable := strings.contains(name, "interactable")
 			if is_interactable {
-				intr := parse_interactable_from_glb(node.(json.Object))
+				intr := parse_interactable_from_glb(node.(json.Object), level_toml)
 
-				// TODO move this there ^
-				{
-					_, intr_type_is_dialogue := intr.data.(Dialogue_Data)
-					if intr_type_is_dialogue {
-						intr.data = parse_dialogue_from_toml(level_table)
-					}
-				}
+				// _, intr_type_is_dialogue := intr.data.(Dialogue_Data)
+				// if intr_type_is_dialogue {
+				// 	intr.data = parse_dialogue_from_toml(level_toml)
+				// }
 
 				append(&interactables, intr)
 			}
@@ -186,8 +183,8 @@ change_level :: proc(state: ^Game_State, next: ^Level) {
 	unload_level(cur_level())
 	state.cur_level_name = next.name
 	load_level(next)
-	
-	
+
+
 }
 
 cur_level :: proc() -> ^Level {

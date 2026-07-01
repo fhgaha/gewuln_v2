@@ -46,7 +46,7 @@ interact :: proc() {
 		)
 		change_level(&game_state, &game_state.levels[d.connected_level_name])
 	case Dialogue_Data:
-		// TODO
+		// TODO mock
 		second_actor := &cur_level().actors["cleaner_a"]
 		main_actor.state = .DIALOGUE
 	case:

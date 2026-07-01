@@ -236,15 +236,12 @@ handle_idle :: proc(dt: f32) {
 
 
 handle_walk :: proc(dt: f32) {
-	dt_ := dt
-	
-	
-	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt_
+	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
 	actor_update_yaw(main_actor, yaw)
 
 	play_anim(&main_actor.animator, .WALK)
 
-	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt_ * actor_dir(main_actor)
+	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(main_actor)
 	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, cur_level().walk_area_tris[:])
 	actor_update_pos(main_actor, main_actor.pos + dpos)
 
@@ -374,7 +371,7 @@ get_interactable_colliding_actor :: proc(
 	return
 }
 
-handle_dialogue :: proc() {
+handle_dialogue :: proc(space_consumed: ^bool) {
 	// here:  ["mona", "Hey, how's it going?"]
 	// here:  ["cleaner_a", "Busy day. Floor's not gonna mop itself."]
 	// here:  ["mona", "Fair enough."]
@@ -383,12 +380,24 @@ handle_dialogue :: proc() {
 	play_anim(&main_actor.animator, .IDLE)
 
 	if len(cur_dialogue.lines) == 0 {
-		cur_dialogue = slice.last(interact_targets[:]).data.(Dialogue_Data)
+		found_dialogue: bool
+		some_dialogue: Dialogue_Data
+		for i := len(interact_targets) - 1; i >= 0; i -= 1 {
+			some_dialogue, found_dialogue = interact_targets[i].data.(Dialogue_Data)
+			if found_dialogue {
+				break
+			}
+		}
+		assert(found_dialogue)
+
+		// cur_dialogue = slice.last(interact_targets[:]).data.(Dialogue_Data)
+		cur_dialogue = some_dialogue
 		cur_dialogue.cashed_cam = cur_level().cam
 		use_actor_camera_while_talking()
 	}
 
-	if r.IsKeyReleased(.SPACE) {
+	if r.IsKeyReleased(.SPACE) && !space_consumed^ {
+		space_consumed^ = true
 		cur_dialogue.cur_idx += 1
 
 		idx_ok := cur_dialogue.cur_idx < len(cur_dialogue.lines)

@@ -111,6 +111,7 @@ update :: proc() {
 
 	dt := r.Clamp(r.GetFrameTime(), 0, max_dt)
 	accumulated_time += dt * speed_up
+	space_consumed: bool = false
 
 	for accumulated_time >= DT {
 		if .paused in flags do break
@@ -142,7 +143,7 @@ update :: proc() {
 
 		switch main_actor.state {
 		case .DIALOGUE:
-			handle_dialogue()
+			handle_dialogue(&space_consumed)
 		case .IDLE:
 			handle_idle(DT)
 		case .WALK:
