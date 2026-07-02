@@ -51,11 +51,9 @@ parse_dialogue_from_toml :: proc(level_table: ^toml.Table) -> Dialogue_Data {
 		id := toml.get_string_panic(elem.(^toml.Table), "id")
 		lines := toml.get_list_panic(elem.(^toml.Table), "lines")
 		for line, i in lines {
-			dl := Dialogue_Line {
-				toml.get_string_panic(line.(^toml.Table), "speaker"),
-				toml.get_string_panic(line.(^toml.Table), "text"),
-			}
-			append(&dd_lines, dl)
+			speaker_name := line.(^toml.List)[0].(string)
+			text := line.(^toml.List)[1].(string)
+			append(&dd_lines, Dialogue_Line{speaker_name, text})
 		}
 	}
 

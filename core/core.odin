@@ -142,25 +142,28 @@ update :: proc() {
 		update_cam(DT)
 
 		//update
-		for k, &v in cur_level().actors {
-			actor_anim_update(&v)
-		#partial switch main_actor.state {
-		case .IDLE:
-			handle_idle(DT)
-		case .WALK:
-			handle_walk(DT)
-		}
+		for _, &actor in cur_level().actors {
+			actor_anim_update(&actor)
+			
+			#partial switch actor.state {
+			case .IDLE:
+				handle_idle(&actor, DT)
+			case .WALK:
+				handle_walk(&actor, DT)
+			}
 		}
 
 
 		accumulated_time -= DT
 	}
 
-	#partial switch main_actor.state {
-	case .DIALOGUE:
-		handle_dialogue()
-	case .INTERACT:
-		handle_interact()
+	for _, &actor in cur_level().actors {
+		#partial switch actor.state {
+		case .DIALOGUE:
+			handle_dialogue(&actor)
+		case .INTERACT:
+			handle_interact(&actor)
+		}
 	}
 }
 

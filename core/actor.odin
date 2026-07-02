@@ -194,31 +194,15 @@ actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
 	}
 }
 
-// actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
-// 	old_yaw := actor.yaw
-// 	new_yaw := clamp_angle(yaw)
-// 	actor.yaw = new_yaw
-// 	actor.model.transform = r.MatrixRotateY(new_yaw)
-// 	delta := new_yaw - old_yaw
-
-// 	for &c in actor.dialogue_cameras {
-// 		q := r.QuaternionFromAxisAngle(UP, delta)
-// 		c.position = actor.pos + r.Vector3RotateByQuaternion(c.position - actor.pos, q)
-// 		c.target = actor.pos + r.Vector3RotateByQuaternion(c.target - actor.pos, q)
-// 	}
-
-// 	if new_yaw != old_yaw && .print_debug_info in flags {
-// 		fmt.println(actor.name, ": yaw =", new_yaw * r.RAD2DEG)
-// 	}
-// }
-
+//
 //actor states
+//
 
-handle_idle :: proc(dt: f32) {
+handle_idle :: proc(actor: ^Actor, dt: f32) {
 	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
 	actor_update_yaw(main_actor, yaw)
 
-	play_anim(&main_actor.animator, .IDLE)
+	play_anim(&actor.animator, .IDLE)
 
 	// state transitions	
 	walk_cond := input.move_dir != 0
@@ -235,7 +219,7 @@ handle_idle :: proc(dt: f32) {
 }
 
 
-handle_walk :: proc(dt: f32) {
+handle_walk :: proc(actor: ^Actor, dt: f32) {
 	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
 	actor_update_yaw(main_actor, yaw)
 
@@ -305,7 +289,7 @@ resolve_slide :: proc(desired: vec3, bb: r.BoundingBox, area: []tri3) -> (result
 }
 
 
-handle_interact :: proc() {
+handle_interact :: proc(actor: ^Actor) {
 	assert(interact_target_found)
 
 	play_anim(&main_actor.animator, .INTERACT)
@@ -371,7 +355,7 @@ get_interactable_colliding_actor :: proc(
 	return
 }
 
-handle_dialogue :: proc() {
+handle_dialogue :: proc(actor: ^Actor) {
 	// here:  ["mona", "Hey, how's it going?"]
 	// here:  ["cleaner_a", "Busy day. Floor's not gonna mop itself."]
 	// here:  ["mona", "Fair enough."]
