@@ -102,65 +102,65 @@ setup :: proc() {
 }
 
 update :: proc() {
-	//fixed timestep (the "accumulator" pattern)
+	//input
+	input = get_player_input()
 
+	if r.IsKeyReleased(.ONE) do flags ~= {.small_res}
+	if r.IsKeyReleased(.TWO) do flags ~= {.show_gizmos}
+	if r.IsKeyReleased(.THREE) {
+		flags ~= {.lock_cursor}
+		if .lock_cursor in flags {r.DisableCursor()} else {r.EnableCursor()}
+	}
+	if r.IsKeyDown(.J) {
+		fxaa_intensity = r.Clamp(fxaa_intensity + 0.1, 0.0, 1.0)
+		r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
+		fmt.println("fxaa_intensity: ", fxaa_intensity)
+	}
+	if r.IsKeyDown(.K) {
+		fxaa_intensity = r.Clamp(fxaa_intensity - 0.1, 0.0, 1.0)
+		r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
+		fmt.println("fxaa_intensity: ", fxaa_intensity)
+	}
+
+	interact_targets, interact_target_found = get_interactable_colliding_actor(
+		cur_level().interactables[:],
+		main_actor,
+	)
+
+	if .paused in flags do return
+
+	//fixed timestep (the "accumulator" pattern)
 	speed_up: f32 = 1
 	if r.IsKeyDown(.LEFT_SHIFT) {
 		speed_up = 2
 	}
 
-	dt := r.Clamp(r.GetFrameTime(), 0, max_dt)
+	dt := r.Clamp(r.GetFrameTime(), 0, MAX_DT)
 	accumulated_time += dt * speed_up
-	space_consumed: bool = false
 
 	for accumulated_time >= DT {
-		if .paused in flags do break
-
-		//input
-		input = get_player_input()
-
-		if r.IsKeyReleased(.ONE) do flags ~= {.small_res}
-		if r.IsKeyReleased(.TWO) do flags ~= {.show_gizmos}
-		if r.IsKeyReleased(.THREE) {
-			flags ~= {.lock_cursor}
-			if .lock_cursor in flags {r.DisableCursor()} else {r.EnableCursor()}
-		}
-		if r.IsKeyDown(.J) {
-			fxaa_intensity = r.Clamp(fxaa_intensity + 0.1, 0.0, 1.0)
-			r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
-			fmt.println("fxaa_intensity: ", fxaa_intensity)
-		}
-		if r.IsKeyDown(.K) {
-			fxaa_intensity = r.Clamp(fxaa_intensity - 0.1, 0.0, 1.0)
-			r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
-			fmt.println("fxaa_intensity: ", fxaa_intensity)
-		}
-
-		interact_targets, interact_target_found = get_interactable_colliding_actor(
-			cur_level().interactables[:],
-			main_actor,
-		)
-
-		switch main_actor.state {
-		case .DIALOGUE:
-			handle_dialogue(&space_consumed)
-		case .IDLE:
-			handle_idle(DT)
-		case .WALK:
-			handle_walk(DT)
-		case .INTERACT:
-			handle_interact()
-		}
+		update_cam(DT)
 
 		//update
 		for k, &v in cur_level().actors {
 			actor_anim_update(&v)
+		#partial switch main_actor.state {
+		case .IDLE:
+			handle_idle(DT)
+		case .WALK:
+			handle_walk(DT)
 		}
-		update_cam(DT)
+		}
+
 
 		accumulated_time -= DT
-		// accumulated_time -= DT * c
+	}
 
+	#partial switch main_actor.state {
+	case .DIALOGUE:
+		handle_dialogue()
+	case .INTERACT:
+		handle_interact()
 	}
 }
 
@@ -173,6 +173,7 @@ draw :: proc() {
 			r.BeginTextureMode(render_target)
 			{
 				render_3d_scene()
+				draw_dialogue() //
 			}
 			r.EndTextureMode()
 
@@ -186,13 +187,15 @@ draw :: proc() {
 					rotation = 0,
 					tint = r.WHITE,
 				)
+				// draw_dialogue()		
 			}
 			r.EndShaderMode()
 		} else {
 			render_3d_scene()
+			draw_dialogue() //
 		}
 
-		draw_dialogue()
+		// draw_dialogue()
 		draw_fps()
 	}
 	r.EndDrawing()
@@ -311,29 +314,34 @@ draw_cameras :: proc() {
 draw_dialogue :: proc() {
 	if main_actor.state != .DIALOGUE do return
 	if len(cur_dialogue.lines) == 0 do return
-
-	// actor name
+	w := WINDOW_WIDTH; h := WINDOW_HEIGHT
+	fs_name := FONT_SIZE_ACTOR_NAME; fs_line := FONT_SIZE_ACTOR_LINE
+	if .small_res in flags {
+		w = RENDER_WIDTH; h = RENDER_HEIGHT
+		fs_name = FONT_SIZE_ACTOR_NAME * 0.5
+		fs_line = FONT_SIZE_ACTOR_LINE * 0.5
+	}
 	draw_text_with_border(
 		font = font,
 		text = get_dialogue_speaker_name(),
-		size = FONT_SIZE_ACTOR_NAME,
-		pos_y = WINDOW_HEIGHT * 0.7,
+		size = fs_name,
+		pos_y = f32(h) * 0.7,
 		spacing = FONT_SPACING,
 		text_color = r.BLACK,
 		border_color = r.WHITE,
 		border_thickness = BORDER_THICKNESS,
+		screen_width = f32(w),
 	)
-
-	// actor line
 	draw_text_with_border(
 		font = font,
 		text = get_dialogue_text(),
-		size = FONT_SIZE_ACTOR_LINE,
-		pos_y = WINDOW_HEIGHT * 0.8,
+		size = fs_line,
+		pos_y = f32(h) * 0.8,
 		spacing = FONT_SPACING,
 		text_color = r.RAYWHITE,
 		border_color = r.BLACK,
 		border_thickness = BORDER_THICKNESS,
+		screen_width = f32(w),
 	)
 }
 
@@ -346,10 +354,11 @@ draw_text_with_border :: proc(
 	text_color: r.Color,
 	border_color: r.Color,
 	border_thickness: f32,
+	screen_width: f32,
 ) {
 	text_c := strings.clone_to_cstring(text)
-	text_size := r.MeasureTextEx(font, text_c, FONT_SIZE_ACTOR_NAME, FONT_SPACING)
-	pos := vec2{WINDOW_WIDTH * 0.5 - text_size.x * 0.5, pos_y}
+	text_size := r.MeasureTextEx(font, text_c, size, FONT_SPACING)
+	pos := vec2{screen_width * 0.5 - text_size.x * 0.5, pos_y}
 
 	// Loop through an 8-directional grid around the central position
 	for dx: f32 = -1; dx <= 1; dx += 1 {

@@ -1,8 +1,22 @@
 package core
 
+import "core:fmt"
 import "core:math"
 //raylib UpdateCamera src:  https://github.com/raysan5/raylib/blob/5b0a799769da9a2ebc662d4aab1f31cf85882c56/src/rcamera.h#L445
 import r "vendor:raylib"
+
+Third_Person_Cam :: struct {
+	distance:     f32,
+	height:       f32,
+	smooth_speed: f32,
+}
+
+// Add to Level struct or config
+default_third_person_cam := Third_Person_Cam {
+	distance     = 4.0,
+	height       = 1.8,
+	smooth_speed = 5.0,
+}
 
 update_cam :: proc(dt: f32) {
 	switch {
@@ -18,7 +32,9 @@ update_cam_debug :: proc(dt: f32) {
 
 	cam_speed: f32 = 10
 
+
 	cam := cur_level().cam
+	cam_cashed := cam^
 
 	if r.IsKeyDown(.UP) { 	//forward
 		r.CameraMoveForward(cam, cam_speed * dt, moveInWorldPlane = false)
@@ -52,19 +68,10 @@ update_cam_debug :: proc(dt: f32) {
 		r.CameraYaw(cam, -mouse_pos_delta.x * cam_rot_speed * dt, rotateAroundTarget = true)
 	}
 	r.CameraMoveToTarget(cam, -r.GetMouseWheelMove()) //zoom
-}
 
-Third_Person_Cam :: struct {
-	distance:     f32,
-	height:       f32,
-	smooth_speed: f32,
-}
-
-// Add to Level struct or config
-default_third_person_cam := Third_Person_Cam {
-	distance     = 4.0,
-	height       = 1.8,
-	smooth_speed = 5.0,
+	if cam^ != cam_cashed {
+		fmt.println("cur cam: ", cam)
+	}
 }
 
 update_cam_follow :: proc(dt: f32, cam_cfg: Third_Person_Cam = default_third_person_cam) {
@@ -91,4 +98,3 @@ update_cam_follow :: proc(dt: f32, cam_cfg: Third_Person_Cam = default_third_per
 	// Target is player's position (slightly above ground)
 	cam.target = vec3{player_pos.x, player_pos.y + 1.0, player_pos.z}
 }
-

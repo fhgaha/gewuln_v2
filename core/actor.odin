@@ -371,7 +371,7 @@ get_interactable_colliding_actor :: proc(
 	return
 }
 
-handle_dialogue :: proc(space_consumed: ^bool) {
+handle_dialogue :: proc() {
 	// here:  ["mona", "Hey, how's it going?"]
 	// here:  ["cleaner_a", "Busy day. Floor's not gonna mop itself."]
 	// here:  ["mona", "Fair enough."]
@@ -396,8 +396,7 @@ handle_dialogue :: proc(space_consumed: ^bool) {
 		use_actor_camera_while_talking()
 	}
 
-	if r.IsKeyReleased(.SPACE) && !space_consumed^ {
-		space_consumed^ = true
+	if r.IsKeyReleased(.SPACE) {
 		cur_dialogue.cur_idx += 1
 
 		idx_ok := cur_dialogue.cur_idx < len(cur_dialogue.lines)
