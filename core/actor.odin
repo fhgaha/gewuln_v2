@@ -3,6 +3,7 @@ package core
 import "../packages/toml"
 import "core:encoding/json"
 import "core:fmt"
+import "core:math"
 import "core:math/rand"
 import "core:slice"
 import "core:strings"
@@ -296,9 +297,10 @@ handle_interact :: proc(actor: ^Actor) {
 
 	animation_ended := last_frame_reached(&main_actor.animator)
 
-	if animation_ended {
-		interact()
-	}
+
+	// if can_interact {
+	// 	interact()
+	// }
 
 
 	//state conditions	
@@ -404,4 +406,58 @@ use_actor_camera_while_talking :: proc() {
 	}
 	dial_cam_idx := rand.int_range(0, len(cam_ptrs))
 	cur_level().cam = cam_ptrs[dial_cam_idx]
+}
+
+actor_is_looking_at_point :: proc(
+	actor: ^Actor,
+	point: vec3,
+) -> (
+	target_direction: r.Quaternion,
+	ok: bool,
+) {
+	animator := &actor.animator
+	anim := &animator.anims[animator.anim_idx]
+	neck_idx := int(actor.neck_bone_index)
+	frame_idx := animator.anim_cur_frame
+
+	neck_local, neck_local_ok := get_bone_transform(
+		&actor.model,
+		neck_idx,
+		anim^.framePoses[frame_idx],
+	)
+	assert(neck_local_ok, "cant get bone transform")
+	neck_pos := neck_local.translation + actor.pos
+	world_dir := r.Vector3Normalize(point - neck_pos)
+	local_dir := r.Vector3Normalize(r.Vector3Transform(world_dir, r.MatrixRotateY(-actor.yaw)))
+	angle_y := vec3_angle(vec3{local_dir.x, 0, local_dir.z}, FORWARD)
+	if angle_y * r.RAD2DEG < ACTOR_NECK_MAX_YAW_DEG {
+		if .show_gizmos in flags {
+			draw_debug_line(neck_pos, point, r.PURPLE)
+		}
+		return neck_target_rotation(local_dir), true
+	}
+	return r.Quaternion(1), false
+}
+
+@(private = "file")
+neck_target_rotation :: proc(local_dir: vec3) -> r.Quaternion {
+	pitch := math.asin(clamp(local_dir.y, -1, 1))
+	pitch = clamp(
+		pitch,
+		-ACTOR_NECK_MAX_PITCH_DEG * r.DEG2RAD,
+		ACTOR_NECK_MAX_PITCH_DEG * r.DEG2RAD,
+	)
+	horiz_len := math.sqrt(local_dir.x * local_dir.x + local_dir.z * local_dir.z)
+	clamped_dir := local_dir
+	if horiz_len > 0.001 {
+		scale := math.cos(pitch) / horiz_len
+		clamped_dir.x *= scale
+		clamped_dir.z *= scale
+	} else {
+		clamped_dir.x = 0
+		clamped_dir.z = math.cos(pitch)
+	}
+	clamped_dir.y = math.sin(pitch)
+	lookat := r.MatrixInvert(r.MatrixLookAt(vec3{0, 0, 0}, -clamped_dir, UP))
+	return r.QuaternionFromMatrix(lookat)
 }

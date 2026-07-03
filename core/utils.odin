@@ -189,13 +189,13 @@ get_bone_transform :: proc(
 	bone_idx: int,
 	frame_poses: [^]r.Transform,
 ) -> (
-	bool,
 	r.Transform,
+	bool,
 ) {
 	for i in 0 ..< int(model.boneCount) {
 		if i == bone_idx {
-			return true, frame_poses[i]
+			return frame_poses[i], true
 		}
 	}
-	return false, r.Transform{}
+	return r.Transform{}, false
 }

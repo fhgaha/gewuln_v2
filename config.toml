@@ -10,7 +10,7 @@ collider = "assets/models/mona_sax/export/glb/collider.glb"
 name  = "cleaner_a"
 model = "assets/models/cleaner_a/export/cleaner_a.glb"
 
- 
+
 [[levels]]
 name     = "test_room"
 room_glb = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
@@ -27,3 +27,4 @@ room_glb = "assets/models/test_rooms/export/test_floor/glb/test_rooms.glb"
 [[levels]]
 name     = "another_test_room"
 room_glb = "assets/models/another_test_room/export/glb/another_test_room.glb"
+

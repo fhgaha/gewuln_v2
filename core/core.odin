@@ -126,6 +126,11 @@ update :: proc() {
 		cur_level().interactables[:],
 		main_actor,
 	)
+	
+	_, actor_is_looking_at_interactable := actor_is_looking_at_point(
+		main_actor,
+		get_interactable_center(&cur_level().intersected_interactables[0]),
+	)
 
 	if .paused in flags do return
 

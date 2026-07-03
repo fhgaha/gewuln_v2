@@ -39,69 +39,47 @@ play_anim :: proc(animator: ^Animator, state: Actor_State) {
 
 
 actor_anim_update :: proc(actor: ^Actor) {
-    animator := &actor.animator
-    anim := &animator.anims[animator.anim_idx]
-    frame_idx := animator.anim_cur_frame
-    animator.anim_cur_frame = (animator.anim_cur_frame + 1) % anim.frameCount
-    neck_idx := int(actor.neck_bone_index)
-    // Cache neck+children rotations (if neck exists)
-    cached: map[int]r.Quaternion
-    defer {
-        for i, rot in cached {
-            anim^.framePoses[frame_idx][i].rotation = rot
-        }
-        delete(cached)
-    }
-    if neck_idx != -1 {
-        for i in 0 ..< int(actor.model.boneCount) {
-            if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
-                cached[i] = anim^.framePoses[frame_idx][i].rotation
-            }
-        }
-    }
-    // Determine target: identity unless looking at an interactable
-    target := r.Quaternion(1)
-    if neck_idx != -1 && len(cur_level().intersected_interactables) > 0 {
-        ok, neck_local := get_bone_transform(&actor.model, neck_idx, anim^.framePoses[frame_idx])
-        assert(ok, "cant get bone transform")
-        neck_pos := neck_local.translation + actor.pos
-        world_dir := r.Vector3Normalize(get_interactable_center(&cur_level().intersected_interactables[0]) - neck_pos)
-        local_dir := r.Vector3Normalize(r.Vector3Transform(world_dir, r.MatrixRotateY(-actor.yaw)))
-        angle_y := vec3_angle(vec3{local_dir.x, 0, local_dir.z}, FORWARD)
-        if angle_y * r.RAD2DEG < ACTOR_NECK_MAX_YAW_DEG {
-            if .show_gizmos in flags {
-                draw_debug_line(neck_pos, get_interactable_center(&cur_level().intersected_interactables[0]), r.BEIGE)
-            }
-            target = neck_target_rotation(local_dir)
-        }
-    }
-    // Slerp delta toward target (identity → smooth decay when not looking)
-    actor.neck_current_delta = r.QuaternionSlerp(actor.neck_current_delta, target, 0.15)
-    // Apply smoothed delta to cached bones
-    for i, original_rot in cached {
-        anim^.framePoses[frame_idx][i].rotation = actor.neck_current_delta * original_rot
-    }
-    r.UpdateModelAnimation(actor.model, anim^, frame_idx)
-    // (defer) restore cached rotations and delete map
-}
+	animator := &actor.animator
+	anim := &animator.anims[animator.anim_idx]
+	frame_idx := animator.anim_cur_frame
+	animator.anim_cur_frame = (animator.anim_cur_frame + 1) % anim.frameCount
+	neck_idx := int(actor.neck_bone_index)
+	// Cache neck+children rotations (if neck exists)
+	cached: map[int]r.Quaternion
+	defer {
+		for i, rot in cached {
+			anim^.framePoses[frame_idx][i].rotation = rot
+		}
+		delete(cached)
+	}
 
-@(private = "file")
-neck_target_rotation :: proc(local_dir: vec3) -> r.Quaternion {
-    pitch := math.asin(clamp(local_dir.y, -1, 1))
-    pitch = clamp(pitch, -ACTOR_NECK_MAX_PITCH_DEG * r.DEG2RAD, ACTOR_NECK_MAX_PITCH_DEG * r.DEG2RAD)
-    horiz_len := math.sqrt(local_dir.x * local_dir.x + local_dir.z * local_dir.z)
-    clamped_dir := local_dir
-    if horiz_len > 0.001 {
-        scale := math.cos(pitch) / horiz_len
-        clamped_dir.x *= scale
-        clamped_dir.z *= scale
-    } else {
-        clamped_dir.x = 0
-        clamped_dir.z = math.cos(pitch)
-    }
-    clamped_dir.y = math.sin(pitch)
-    lookat := r.MatrixInvert(r.MatrixLookAt(vec3{0, 0, 0}, -clamped_dir, UP))
-    return r.QuaternionFromMatrix(lookat)
+	// Determine target: identity unless looking at an interactable
+	target_dir_quat := r.Quaternion(1); is_looking: bool
+
+	if neck_idx != -1 {
+		// cash neck child bones
+		for i in 0 ..< int(actor.model.boneCount) {
+			if i == neck_idx || is_child_of_neck(actor, i, neck_idx) {
+				cached[i] = anim^.framePoses[frame_idx][i].rotation
+			}
+		}
+
+		if len(cur_level().intersected_interactables) > 0 {
+			target_dir_quat, is_looking = actor_is_looking_at_point(
+				actor,
+				get_interactable_center(&cur_level().intersected_interactables[0]),
+			)
+		}
+	}
+
+	// Slerp delta toward target (identity → smooth decay when not looking)
+	actor.neck_current_delta = r.QuaternionSlerp(actor.neck_current_delta, target_dir_quat, 0.15)
+	// Apply smoothed delta to cached bones
+	for i, original_rot in cached {
+		anim^.framePoses[frame_idx][i].rotation = actor.neck_current_delta * original_rot
+	}
+	r.UpdateModelAnimation(actor.model, anim^, frame_idx)
+	// (defer) restore cached rotations and delete map
 }
 
 @(private = "file")
