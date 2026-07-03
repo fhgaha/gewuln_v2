@@ -122,17 +122,24 @@ update :: proc() {
 		fmt.println("fxaa_intensity: ", fxaa_intensity)
 	}
 
-	interact_targets, interact_target_found = get_interactable_colliding_actor(
+	if .paused in flags do return
+	
+	actor_intersecting_intr: bool
+	interact_targets, actor_intersecting_intr = get_interactable_colliding_actor(
 		cur_level().interactables[:],
 		main_actor,
 	)
 	
-	_, actor_is_looking_at_interactable := actor_is_looking_at_point(
-		main_actor,
-		get_interactable_center(&cur_level().intersected_interactables[0]),
-	)
+	actor_is_looking_at_intr: bool
+	if len(&cur_level().intersected_interactables) > 0 {
+		_, actor_is_looking_at_intr = actor_is_looking_at_point(
+			main_actor,
+			get_interactable_center(&cur_level().intersected_interactables[0]),
+		)
+	}
+	
+	interact_target_found = actor_intersecting_intr && actor_is_looking_at_intr
 
-	if .paused in flags do return
 
 	//fixed timestep (the "accumulator" pattern)
 	speed_up: f32 = 1
@@ -149,7 +156,7 @@ update :: proc() {
 		//update
 		for _, &actor in cur_level().actors {
 			actor_anim_update(&actor)
-			
+
 			#partial switch actor.state {
 			case .IDLE:
 				handle_idle(&actor, DT)
