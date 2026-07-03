@@ -291,20 +291,18 @@ resolve_slide :: proc(desired: vec3, bb: r.BoundingBox, area: []tri3) -> (result
 
 
 handle_interact :: proc(actor: ^Actor) {
-	assert(interact_target_found)
-
 	play_anim(&main_actor.animator, .INTERACT)
-
 	animation_ended := last_frame_reached(&main_actor.animator)
 
-
-	// if can_interact {
-	// 	interact()
-	// }
-
+	if animation_ended {
+		interact()
+	}
 
 	//state conditions	
-	dialogue, is_dialogue := slice.last(interact_targets[:]).data.(Dialogue_Data)
+	is_dialogue: bool
+	if interact_target_found {
+		_, is_dialogue = &interact_targets[0].data.(Dialogue_Data)
+	}
 	dialogue_cond := animation_ended && interact_target_found && is_dialogue
 	walk_cond := animation_ended && input.move_dir != 0
 	idle_cond := animation_ended

@@ -173,6 +173,7 @@ destroy_level :: proc() {
 }
 
 load_level :: proc(lvl: ^Level) {
+	
 }
 
 unload_level :: proc(lvl: ^Level) {
@@ -183,8 +184,6 @@ change_level :: proc(state: ^Game_State, next: ^Level) {
 	unload_level(cur_level())
 	state.cur_level_name = next.name
 	load_level(next)
-
-
 }
 
 cur_level :: proc() -> ^Level {

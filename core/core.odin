@@ -124,21 +124,21 @@ update :: proc() {
 
 	if .paused in flags do return
 	
-	actor_intersecting_intr: bool
-	interact_targets, actor_intersecting_intr = get_interactable_colliding_actor(
+	main_actor_intersecting_intr: bool
+	interact_targets, main_actor_intersecting_intr = get_interactable_colliding_actor(
 		cur_level().interactables[:],
 		main_actor,
 	)
 	
-	actor_is_looking_at_intr: bool
+	main_actor_is_looking_at_intr: bool
 	if len(&cur_level().intersected_interactables) > 0 {
-		_, actor_is_looking_at_intr = actor_is_looking_at_point(
+		_, main_actor_is_looking_at_intr = actor_is_looking_at_point(
 			main_actor,
 			get_interactable_center(&cur_level().intersected_interactables[0]),
 		)
 	}
 	
-	interact_target_found = actor_intersecting_intr && actor_is_looking_at_intr
+	interact_target_found = main_actor_intersecting_intr && main_actor_is_looking_at_intr
 
 
 	//fixed timestep (the "accumulator" pattern)
