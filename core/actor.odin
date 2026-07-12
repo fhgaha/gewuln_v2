@@ -56,10 +56,10 @@ create_actors_from_toml :: proc(toml_table: ^toml.Table) -> (actors: map[string]
 	return
 }
 
-create_actor :: proc(actor_table: ^toml.Table) -> (actor: Actor, ok: bool) {
-	actor_name := toml.get_string_panic(actor_table, "name")
-	model_path := toml.get_string_panic(actor_table, "model")
-	collider_path, coll_ok := toml.get_string(actor_table, "collider")
+create_actor :: proc(actor_toml: ^toml.Table) -> (actor: Actor, ok: bool) {
+	actor_name := toml.get_string_panic(actor_toml, "name")
+	model_path := toml.get_string_panic(actor_toml, "model")
+	collider_path, coll_ok := toml.get_string(actor_toml, "collider")
 	model_path_c := strings.clone_to_cstring(model_path)
 
 	// Load resources
@@ -169,6 +169,8 @@ actor_update_pos :: proc(actor: ^Actor, new_pos: vec3) {
 	if actor.pos != old_pos && .print_debug_info in flags {
 		fmt.println(actor.name, ": pos =", actor.pos)
 	}
+	
+	// print(actor.name, actor.pos, actor.dialogue_cameras[:][0].position)
 }
 
 actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
@@ -211,11 +213,11 @@ handle_idle :: proc(actor: ^Actor, dt: f32) {
 	interact_cond := input.wants_interact && interact_target_found
 	switch {
 	case walk_cond:
-		main_actor.state = .WALK
-		fmt.println(main_actor.name, ": handle_walk")
+		actor.state = .WALK
+		fmt.println(actor.name, ": handle_walk")
 	case interact_cond:
-		main_actor.state = .INTERACT
-		fmt.println(main_actor.name, ": handle_interact")
+		actor.state = .INTERACT
+		fmt.println(actor.name, ": handle_interact")
 	}
 }
 
@@ -237,11 +239,11 @@ handle_walk :: proc(actor: ^Actor, dt: f32) {
 	idle_cond := input.move_dir == 0
 	switch {
 	case interact_cond:
-		main_actor.state = .INTERACT
-		fmt.println(main_actor.name, ": handle_interact")
+		actor.state = .INTERACT
+		fmt.println(actor.name, ": handle_interact")
 	case idle_cond:
-		main_actor.state = .IDLE
-		fmt.println(main_actor.name, ": handle_idle")
+		actor.state = .IDLE
+		fmt.println(actor.name, ": handle_idle")
 	}
 }
 
@@ -308,14 +310,14 @@ handle_interact :: proc(actor: ^Actor) {
 	idle_cond := animation_ended
 	switch {
 	case dialogue_cond:
-		main_actor.state = .DIALOGUE
-		fmt.println(main_actor.name, ": handle_dialogue")
+		actor.state = .DIALOGUE
+		fmt.println(actor.name, ": handle_dialogue")
 	case walk_cond:
-		main_actor.state = .WALK
-		fmt.println(main_actor.name, ": handle_walk")
+		actor.state = .WALK
+		fmt.println(actor.name, ": handle_walk")
 	case idle_cond:
-		main_actor.state = .IDLE
-		fmt.println(main_actor.name, ": handle_idle")
+		actor.state = .IDLE
+		fmt.println(actor.name, ": handle_idle")
 	}
 }
 
@@ -380,6 +382,8 @@ handle_dialogue :: proc(actor: ^Actor) {
 		use_actor_camera_while_talking()
 	}
 
+
+	switch_state_to_idle: bool
 	if r.IsKeyReleased(.SPACE) {
 		cur_dialogue.cur_idx += 1
 
@@ -391,8 +395,13 @@ handle_dialogue :: proc(actor: ^Actor) {
 			//reset
 			cur_level().cam = cur_dialogue.cashed_cam
 			cur_dialogue = {}
-			main_actor.state = .IDLE
+
+			switch_state_to_idle = true
 		}
+	}
+
+	if switch_state_to_idle {
+		actor.state = .IDLE
 	}
 }
 

@@ -7,18 +7,16 @@ import "core:math"
 import "core:strings"
 import r "vendor:raylib"
 
-
 Level :: struct {
-	name:                      string,
-	cam:                       ^r.Camera3D,
-	cameras:                   map[string]r.Camera3D,
-	room:                      r.Model,
-	walk_area_mesh_idx:        i32,
-	walk_area_tris:            [dynamic]tri3,
-	interactables:             [dynamic]Interactable,
-	spawn_positions:           [dynamic]Actor_Spawn_Placement,
-	intersected_interactables: [dynamic]Interactable, //intersected by main actor
-	actors:                    map[string]Actor, // all actors including main actor
+	name:                                     string,
+	cam:                                      ^r.Camera3D,
+	cameras:                                  map[string]r.Camera3D,
+	room:                                     r.Model,
+	walk_area_mesh_idx:                       i32,
+	walk_area_tris:                           [dynamic]tri3,
+	spawn_positions:                          [dynamic]Actor_Spawn_Placement,
+	interactables, intersected_interactables: [dynamic]Interactable, //intersected by main actor
+	actors:                                   map[string]Actor, // all actors including main actor
 }
 
 Actor_Spawn_Placement :: struct {
@@ -28,15 +26,15 @@ Actor_Spawn_Placement :: struct {
 }
 
 create_levels :: proc(
-	toml_table: ^toml.Table,
+	config_toml: ^toml.Table,
 ) -> (
 	levels: map[string]Level,
 	first_level_name: string,
 ) {
 	levels_table: ^toml.List
 	ok: bool
-	levels_table, ok = toml.get_list(toml_table, "levels"); assert(ok)
-	first_level_name, ok = toml.get_string(toml_table, "first_level_name"); assert(ok)
+	levels_table, ok = toml.get_list(config_toml, "levels"); assert(ok)
+	first_level_name, ok = toml.get_string(config_toml, "first_level_name"); assert(ok)
 
 	actors := create_actors_from_toml(game_config)
 
@@ -47,7 +45,9 @@ create_levels :: proc(
 	return
 }
 
-create_level :: proc(level_toml: ^toml.Table, actors: map[string]Actor) -> Level {
+found_main_actor: bool
+
+create_level :: proc(level_toml: ^toml.Table, all_actors: map[string]Actor) -> Level {
 
 	// room
 
@@ -144,10 +144,12 @@ create_level :: proc(level_toml: ^toml.Table, actors: map[string]Actor) -> Level
 		assert(intr.mesh_index != -1, "interactable not matched to any mesh")
 	}
 
-	// TODO second level wipes actors?
+	level_actors: map[string]Actor
 	for spawn in spawn_positions {
-		actor_update_pos(&actors[spawn.actor_name], spawn.pos)
-		actor_update_yaw(&actors[spawn.actor_name], spawn.yaw)
+		if spawn.actor_name == "mona" && found_main_actor do continue
+		if spawn.actor_name == "mona" && !found_main_actor do found_main_actor = true
+		level_actors[spawn.actor_name] = all_actors[spawn.actor_name]
+		actor_update_pos_and_yaw(&level_actors[spawn.actor_name], spawn.pos, spawn.yaw)
 	}
 
 	// TODO check everything nessesery is initialized
@@ -161,7 +163,7 @@ create_level :: proc(level_toml: ^toml.Table, actors: map[string]Actor) -> Level
 		walk_area_tris     = walk_area_tris,
 		interactables      = interactables,
 		spawn_positions    = spawn_positions,
-		actors             = actors,
+		actors             = level_actors,
 	}
 
 	return level
@@ -173,7 +175,7 @@ destroy_level :: proc() {
 }
 
 load_level :: proc(lvl: ^Level) {
-	
+
 }
 
 unload_level :: proc(lvl: ^Level) {
@@ -181,16 +183,24 @@ unload_level :: proc(lvl: ^Level) {
 }
 
 change_level :: proc(state: ^Game_State, next: ^Level) {
+	// for _, actor in cur_level().actors {
+	// 	print(cur_level().name, actor.name)
+	// }
+
 	unload_level(cur_level())
 	state.cur_level_name = next.name
 	load_level(next)
+
+	// for _, actor in cur_level().actors {
+	// 	print(cur_level().name, actor.name)
+	// }
 }
 
 cur_level :: proc() -> ^Level {
-	level_ptr, ok := &game_state.levels[game_state.cur_level_name]
+	level_ptr, ok := &levels[game_state.cur_level_name]
 	if !ok {
 		fmt.print("Available levels: ")
-		for k, _ in game_state.levels do fmt.printf("'%s' ", k)
+		for k, _ in levels do fmt.printf("'%s' ", k)
 		fmt.println()
 
 		fmt.panicf("Level '%s' not found in map!", game_state.cur_level_name)

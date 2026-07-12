@@ -17,8 +17,9 @@ Flags :: enum {
 
 Game_State :: struct {
 	cur_level_name: string,
-	levels:         map[string]Level,
 }
+
+levels: map[string]Level
 
 game_config_data := #load("../config.toml")
 game_config: ^toml.Table
@@ -69,7 +70,7 @@ main :: proc() {
 	setup()
 
 	//testing
-	actor_update_pos_and_yaw(main_actor, vec3{-3, 0, -3}, 180)
+	// actor_update_pos_and_yaw(main_actor, vec3{-3, 0, -3}, 180)
 
 	for !r.WindowShouldClose() {
 		update()
@@ -88,8 +89,9 @@ setup :: proc() {
 	game_config, err = toml.parse_data(game_config_data)
 	assert(err.type == .None, fmt.enum_value_to_string(err.type) or_else "an error")
 
-	game_state.levels, game_state.cur_level_name = create_levels(game_config)
-	main_actor = &game_state.levels["test_room"].actors["mona"]
+	levels, game_state.cur_level_name = create_levels(game_config)
+	main_actor = &cur_level().actors["mona"]
+
 
 	// searching neck bone index
 	for i in 0 ..< main_actor.model.boneCount {
@@ -123,13 +125,13 @@ update :: proc() {
 	}
 
 	if .paused in flags do return
-	
+
 	main_actor_intersecting_intr: bool
 	interact_targets, main_actor_intersecting_intr = get_interactable_colliding_actor(
 		cur_level().interactables[:],
 		main_actor,
 	)
-	
+
 	main_actor_is_looking_at_intr: bool
 	if len(&cur_level().intersected_interactables) > 0 {
 		_, main_actor_is_looking_at_intr = actor_is_looking_at_point(
@@ -137,7 +139,7 @@ update :: proc() {
 			get_interactable_center(&cur_level().intersected_interactables[0]),
 		)
 	}
-	
+
 	interact_target_found = main_actor_intersecting_intr && main_actor_is_looking_at_intr
 
 
@@ -156,26 +158,23 @@ update :: proc() {
 		//update
 		for _, &actor in cur_level().actors {
 			actor_anim_update(&actor)
-
-			#partial switch actor.state {
-			case .IDLE:
-				handle_idle(&actor, DT)
-			case .WALK:
-				handle_walk(&actor, DT)
-			}
 		}
 
+		#partial switch main_actor.state {
+		case .IDLE:
+			handle_idle(main_actor, DT)
+		case .WALK:
+			handle_walk(main_actor, DT)
+		}
 
 		accumulated_time -= DT
 	}
 
-	for _, &actor in cur_level().actors {
-		#partial switch actor.state {
-		case .DIALOGUE:
-			handle_dialogue(&actor)
-		case .INTERACT:
-			handle_interact(&actor)
-		}
+	#partial switch main_actor.state {
+	case .DIALOGUE:
+		handle_dialogue(main_actor)
+	case .INTERACT:
+		handle_interact(main_actor)
 	}
 }
 
