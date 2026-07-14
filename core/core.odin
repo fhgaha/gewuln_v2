@@ -19,8 +19,6 @@ Game_State :: struct {
 	cur_level_name: string,
 }
 
-levels: map[string]Level
-
 game_config_data := #load("../config.toml")
 game_config: ^toml.Table
 
@@ -40,6 +38,9 @@ debug_lines: [dynamic]DebugLine
 interact_targets: [dynamic]Interactable
 interact_target_found: bool
 
+levels_datas: [dynamic]Level_Data
+all_actors: map[string]Actor
+level: Level
 
 main :: proc() {
 	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_RESIZABLE})
@@ -89,7 +90,14 @@ setup :: proc() {
 	game_config, err = toml.parse_data(game_config_data)
 	assert(err.type == .None, fmt.enum_value_to_string(err.type) or_else "an error")
 
-	levels, game_state.cur_level_name = create_levels(game_config)
+	// levels, game_state.cur_level_name = create_levels(game_config)
+
+	all_actors = create_actors_from_toml(game_config)
+	levels_datas = create_levels_datas(game_config)
+	first_level_name, ok := toml.get_string(game_config, "first_level_name"); assert(ok)
+	game_state.cur_level_name = first_level_name
+	load_level(&game_state, first_level_name)
+
 	main_actor = &cur_level().actors["mona"]
 
 

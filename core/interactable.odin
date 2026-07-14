@@ -39,12 +39,12 @@ interact :: proc() {
 	case Door_Data:
 		assert(d.connected_level_name != "")
 		assert(strings.contains(strings.to_lower(d.connected_level_name), "room"))
-		print(d)
-		assert(
-			d.connected_level_name in levels,
-			fmt.tprintf("No such key in levels: %v", d.connected_level_name),
-		)
-		change_level(&game_state, &levels[d.connected_level_name])
+		// assert(
+		// 	d.connected_level_name in levels,
+		// 	fmt.tprintf("No such key in levels: %v", d.connected_level_name),
+		// )
+		change_level(&game_state, d.connected_level_name)
+		
 	case Dialogue_Data:
 		// TODO mock
 		second_actor := &cur_level().actors["cleaner_a"]
