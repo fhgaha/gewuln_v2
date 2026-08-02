@@ -70,6 +70,7 @@ create_actor :: proc(actor_toml: ^toml.Table) -> (actor: Actor, ok: bool) {
 
 	has_collider: bool
 	actor_coll_model: r.Model
+	defer r.UnloadModel(actor_coll_model)
 	if coll_ok && collider_path != "" {
 		actor_coll_model = r.LoadModel(strings.clone_to_cstring(collider_path))
 		has_collider = true
@@ -100,6 +101,7 @@ create_actor :: proc(actor_toml: ^toml.Table) -> (actor: Actor, ok: bool) {
 	model_glb_json := get_json_chunk_from_glb(model_path)
 	defer json.destroy_value(model_glb_json)
 	cameras_json, cameras_json_ok := model_glb_json.(json.Object)["cameras"].(json.Array)
+	assert(cameras_json_ok)
 	dialogue_cameras: [dynamic]r.Camera3D
 
 	for node in model_glb_json.(json.Object)["nodes"].(json.Array) {
@@ -110,6 +112,7 @@ create_actor :: proc(actor_toml: ^toml.Table) -> (actor: Actor, ok: bool) {
 				strings.contains(name, "camera") && strings.contains(name, "dialogue")
 			if is_dialogue_camera {
 				camera, camera_ok := parse_camera3d_from_glb(node.(json.Object), &cameras_json)
+				// assert(camera_ok)
 				append(&dialogue_cameras, camera)
 			}
 		}
@@ -133,6 +136,12 @@ create_actor :: proc(actor_toml: ^toml.Table) -> (actor: Actor, ok: bool) {
 	}
 	ok = true
 	return
+}
+
+delete_actor :: proc(actor: ^Actor) {
+	r.UnloadModel(actor.model)
+	r.UnloadModelAnimations(actor.animator.anims, actor.animator.anims_count)
+	err := delete(actor.dialogue_cameras); assert(err == .None)
 }
 
 actor_pos :: proc(actor: ^Actor) -> vec3 {
@@ -169,7 +178,7 @@ actor_update_pos :: proc(actor: ^Actor, new_pos: vec3) {
 	if actor.pos != old_pos && .print_debug_info in flags {
 		fmt.println(actor.name, ": pos =", actor.pos)
 	}
-	
+
 	// print(actor.name, actor.pos, actor.dialogue_cameras[:][0].position)
 }
 
@@ -293,11 +302,19 @@ resolve_slide :: proc(desired: vec3, bb: r.BoundingBox, area: []tri3) -> (result
 
 
 handle_interact :: proc(actor: ^Actor) {
-	play_anim(&main_actor.animator, .INTERACT)
-	animation_ended := last_frame_reached(&main_actor.animator)
+	skip_interact_anim: bool = true
+	animation_ended: bool
 
-	if animation_ended {
+	if skip_interact_anim {
+		animation_ended = true
 		interact()
+	} else {
+		play_anim(&main_actor.animator, .INTERACT)
+		animation_ended = last_frame_reached(&main_actor.animator)
+
+		if animation_ended {
+			interact()
+		}
 	}
 
 	//state conditions	

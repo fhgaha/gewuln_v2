@@ -1,6 +1,7 @@
 package core
 
 import "../packages/toml"
+import "base:runtime"
 import "core:encoding/json"
 import "core:fmt"
 import "core:math"
@@ -22,10 +23,6 @@ Actor_Spawn_Placement :: struct {
 	actor_name: string,
 	pos:        vec3,
 	yaw:        f32,
-}
-
-destroy_level :: proc() {
-
 }
 
 load_level :: proc(state: ^Game_State, name: string) {
@@ -56,7 +53,20 @@ load_level :: proc(state: ^Game_State, name: string) {
 }
 
 unload_level :: proc(lvl: ^Level) {
+	err: runtime.Allocator_Error
+	// delete(lvl.name)	// points to TOML table, dont delete
+	// delete(lvl.cam)	// removed on exit or Level struct delete
+	err = delete(lvl.cameras); assert(err == .None)
+	r.UnloadModel(lvl.room)
+	// delete(lvl.walk_area_mesh_idx)	// removed on exit or Level struct delete
+	err = delete(lvl.walk_area_tris); assert(err == .None)
+	err = delete(lvl.interactables); assert(err == .None)
+	err = delete(lvl.intersected_interactables); assert(err == .None)
 
+	// for _, &actor in lvl.actors {
+	// 	delete_actor(&actor)
+	// }
+	err = delete(lvl.actors); assert(err == .None)
 }
 
 change_level :: proc(state: ^Game_State, next: string) {
@@ -82,7 +92,7 @@ fill_actor_placements :: proc(
 	value_ := strings.to_lower(value)
 	name_value := node.(json.Object)["name"].(json.String)
 	name_value_ := strings.to_lower(name_value)
-	if strings.contains(name_value, value_) {
+	if strings.contains(name_value_, value_) {
 		ap: Actor_Spawn_Placement
 
 		tr := node.(json.Object)["translation"]
@@ -141,7 +151,7 @@ create_levels_datas :: proc(config_toml: ^toml.Table) -> [dynamic]Level_Data {
 	levels_toml, ok = toml.get_list(config_toml, "levels"); assert(ok)
 
 	levels_datas: [dynamic]Level_Data
-	for lvl_toml, i in levels_toml {
+	for lvl_toml in levels_toml {
 		lvl_data := create_level_data(lvl_toml.(^toml.Table))
 		append(&levels_datas, lvl_data)
 	}

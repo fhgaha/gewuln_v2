@@ -1,7 +1,5 @@
 package core
 
-import "core:fmt"
-import "core:math"
 import r "vendor:raylib"
 
 //animations

@@ -242,8 +242,8 @@ render_3d_scene :: proc() {
 		}
 
 		// draw actors
-		for k, &v in cur_level().actors {
-			r.DrawModel(v.model, v.pos, 1, r.WHITE)
+		for _, &actor in cur_level().actors {
+			r.DrawModel(actor.model, actor.pos, 1, r.WHITE)
 		}
 
 		if .show_gizmos in flags {
