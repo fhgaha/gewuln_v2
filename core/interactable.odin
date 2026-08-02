@@ -9,15 +9,21 @@ Interactable_Type :: enum {
 	None,
 	Door,
 	Dialogue,
+	Stair,
 }
 
 Door_Data :: struct {
 	connected_level_name: string,
 }
 
+Stair_Data :: struct {
+	connected_level_name: string,
+}
+
 Interactable_Data_Union :: union {
 	Door_Data,
 	Dialogue_Data,
+	Stair_Data,
 }
 
 Interactable :: struct {
@@ -31,7 +37,7 @@ Interactable :: struct {
 Interactables_Naming_Table :: [?]struct {
 	str:  string,
 	type: Interactable_Type,
-}{{"none", .None}, {"door", .Door}, {"dialogue", .Dialogue}}
+}{{"none", .None}, {"door", .Door}, {"dialogue", .Dialogue}, {"stair", .Stair}}
 
 
 interact :: proc() {
@@ -44,11 +50,20 @@ interact :: proc() {
 		// 	fmt.tprintf("No such key in levels: %v", d.connected_level_name),
 		// )
 		change_level(&game_state, d.connected_level_name)
-		
+
 	case Dialogue_Data:
 		// TODO mock
 		second_actor := &cur_level().actors["cleaner_a"]
 		main_actor.state = .DIALOGUE
+	case Stair_Data:
+		assert(d.connected_level_name != "")
+		assert(strings.contains(strings.to_lower(d.connected_level_name), "room"))
+
+		
+
+		//play walk stair animation
+		//move up/down the stair
+		//move to next room
 	case:
 	// no action or default
 	}

@@ -37,8 +37,13 @@ parse_interactable_data :: proc(
 		connected, ok := node["connected_level"].(json.String)
 		assert(ok)
 		return Door_Data{connected_level_name = strings.clone(connected)}
+	case "stair":
+		connected, ok := node["connected_level"].(json.String)
+		assert(ok)
+		return Stair_Data{connected_level_name = strings.clone(connected)}
 	case "dialogue":
 		return parse_dialogue_from_toml(level_toml)
+	case:
 	}
 	return nil
 }

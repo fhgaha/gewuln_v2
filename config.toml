@@ -1,5 +1,4 @@
 first_level_name = "test_room"
-# first_level_name = "another_test_room"
 
 [[actors]]
 name     = "mona"
