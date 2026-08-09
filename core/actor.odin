@@ -26,6 +26,13 @@ Actor :: struct {
 	dialogue_cameras:                    [dynamic]r.Camera3D,
 }
 
+Input_State :: struct {
+	move_dir:         f32, // -1 to 1 (Forward/Back)
+	turn_dir:         f32, // -1 to 1 (Left/Right)
+	wants_interact:   bool,
+	dialogue_advance: bool,
+}
+
 Actor_State :: enum {
 	IDLE,
 	WALK,
@@ -42,12 +49,26 @@ actor_state_strings := [Actor_State]string {
 	.STAIR    = "stair",
 }
 
-Input_State :: struct {
-	move_dir:         f32, // -1 to 1 (Forward/Back)
-	turn_dir:         f32, // -1 to 1 (Left/Right)
-	wants_interact:   bool,
-	dialogue_advance: bool,
+Actor_State_Transition :: struct {
+	from, to: Actor_State,
+	cond:     proc() -> bool,
 }
+
+// actor_transitions := []Actor_State_Transition {
+// 	//from		to		   condition
+// 	{.IDLE, .WALK, proc() -> bool {return input.move_dir != 0}},
+// 	{.IDLE, .INTERACT, proc() -> bool {return input.wants_interact && interact_target_found}},
+// 	{.WALK, .INTERACT, proc() -> bool {return input.wants_interact && interact_target_found}},
+// 	{.WALK, .IDLE, proc() -> bool {return input.move_dir == 0}},
+// 	// {.INTERACT, .STAIR,    proc() -> bool { return interact_anim_done && stair_target_found }},
+// 	{.INTERACT, .DIALOGUE, proc() -> bool {
+
+
+// 			return interact_anim_done && dialogue_target_found
+// 		}},
+// 	{.INTERACT, .WALK, proc() -> bool {return interact_anim_done && input.move_dir != 0}},
+// 	{.INTERACT, .IDLE, proc() -> bool {return interact_anim_done}},
+// }
 
 create_actors_from_toml :: proc(toml_table: ^toml.Table) -> (actors: map[string]Actor) {
 	for a in toml_table["actors"].(^toml.List) {
@@ -238,7 +259,7 @@ handle_idle :: proc(actor: ^Actor, dt: f32) {
 
 	// state transitions	
 	walk_cond := input.move_dir != 0
-	interact_cond := input.wants_interact && interact_target_found
+	interact_cond := input.wants_interact && main_actor_state.interact_target_found
 	switch {
 		case walk_cond:
 			actor.state = .WALK
@@ -263,7 +284,7 @@ handle_walk :: proc(actor: ^Actor, dt: f32) {
 
 	// state transitions
 
-	interact_cond := interact_target_found && input.wants_interact
+	interact_cond := main_actor_state.interact_target_found && input.wants_interact
 	idle_cond := input.move_dir == 0
 	switch {
 		case interact_cond:
@@ -338,11 +359,11 @@ handle_interact :: proc(actor: ^Actor) {
 
 	//update actor state
 	is_dialogue, is_stair: bool
-	if interact_target_found {
-		_, is_dialogue = &interact_targets[0].data.(Dialogue_Data)
-		_, is_stair = &interact_targets[0].data.(Stair_Data)
+	if main_actor_state.interact_target_found {
+		_, is_dialogue = &cur_level().intersected_interactables[0].data.(Dialogue_Data)
+		_, is_stair = &cur_level().intersected_interactables[0].data.(Stair_Data)
 	}
-	dialogue_cond := animation_ended && interact_target_found && is_dialogue
+	dialogue_cond := animation_ended && main_actor_state.interact_target_found && is_dialogue
 	walk_cond := animation_ended && input.move_dir != 0
 	idle_cond := animation_ended
 	walk_stairs_cond := is_stair
@@ -363,39 +384,29 @@ handle_interact :: proc(actor: ^Actor) {
 	}
 }
 
-
 get_interactable_colliding_actor :: proc(
 	interactables: []Interactable,
 	actor: ^Actor,
 ) -> (
-	colliding: [dynamic]Interactable,
+	intersected: []Interactable,
 	found: bool,
 ) {
+	tmp: [dynamic]Interactable
+ 
 	for &intr in interactables {
 		mesh := get_interactable_mesh(&intr)
-		col := r.CheckCollisionBoxes(actor.bounding_box, r.GetMeshBoundingBox(mesh))
-		if (col) {
-			append(&colliding, intr)
+		if r.CheckCollisionBoxes(actor.bounding_box, r.GetMeshBoundingBox(mesh)) {
+			append(&tmp, intr)
 		}
 	}
-
-	if false do print_intercactables_colliding_with_actor(colliding)
-
-	print_intercactables_colliding_with_actor :: proc(colliding: [dynamic]Interactable) {
-		names_slice := make([]string, len(colliding)); defer delete(names_slice)
-		for collider, idx in colliding {
-			names_slice[idx] = collider.name
-		}
-		fmt.println("interactables colliding actor: ", names_slice)
-	}
-
-	// save in level
-	cur_level().intersected_interactables = colliding
-
-	if len(colliding) == 0 do return
-
-
-	found = true
+ 
+	// hand the buffer to the level (it's the owner now); free yesterday's first
+	delete(cur_level().intersected_interactables)
+	cur_level().intersected_interactables = tmp
+ 
+	// same buffer as the field — valid until the NEXT call to this proc
+	intersected = tmp[:]
+	found = len(intersected) > 0
 	return
 }
 
@@ -410,8 +421,8 @@ handle_dialogue :: proc(actor: ^Actor) {
 	if len(cur_dialogue.lines) == 0 {
 		found_dialogue: bool
 		some_dialogue: Dialogue_Data
-		for i := len(interact_targets) - 1; i >= 0; i -= 1 {
-			some_dialogue, found_dialogue = interact_targets[i].data.(Dialogue_Data)
+		for i := len(cur_level().intersected_interactables) - 1; i >= 0; i -= 1 {
+			some_dialogue, found_dialogue = cur_level().intersected_interactables[i].data.(Dialogue_Data)
 			if found_dialogue {
 				break
 			}

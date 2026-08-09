@@ -21,7 +21,7 @@ Game_State :: struct {
 }
 
 Main_Actor_State :: struct {
-	intersecting_intr, looking_at_intr: bool,
+	interact_target_found: bool,
 }
 
 FXAA_Settings :: struct {
@@ -43,8 +43,6 @@ accumulated_time: f32
 
 debug_lines: [dynamic]DebugLine
 
-interact_targets: [dynamic]Interactable
-interact_target_found: bool
 
 levels_datas: [dynamic]Level_Data
 all_actors: map[string]Actor
@@ -86,6 +84,9 @@ main :: proc() {
 	for !r.WindowShouldClose() {
 		read_input()
 		update()
+
+		dt := r.Clamp(r.GetFrameTime(), 0, MAX_DT)
+		accumulated_time += dt * game_state.speed_up
 
 		for accumulated_time >= DT {
 			fixed_update(DT)
@@ -161,25 +162,23 @@ update :: proc() {
 
 	// update interact targets
 	{
-		interact_targets, main_actor_state.intersecting_intr = get_interactable_colliding_actor(
+		intersected_interactables: []Interactable
+		intersecting_intr: bool
+		intersected_interactables, intersecting_intr = get_interactable_colliding_actor(
 			cur_level().interactables[:],
 			main_actor,
 		)
 
-		if len(&cur_level().intersected_interactables) > 0 {
-			_, main_actor_state.looking_at_intr = actor_is_looking_at_point(
+		looking_at_intr: bool
+		if intersecting_intr {
+			_, looking_at_intr = actor_is_looking_at_point(
 				main_actor,
-				get_interactable_center(&cur_level().intersected_interactables[0]),
+				get_interactable_center(&intersected_interactables[0]),
 			)
 		}
 
-		interact_target_found =
-			main_actor_state.intersecting_intr && main_actor_state.looking_at_intr
+		main_actor_state.interact_target_found = intersecting_intr && looking_at_intr
 	}
-
-	dt := r.Clamp(r.GetFrameTime(), 0, MAX_DT)
-	accumulated_time += dt * game_state.speed_up
-
 
 	update_actor_events(main_actor)
 }
