@@ -17,21 +17,29 @@ Flags :: enum {
 
 Game_State :: struct {
 	cur_level_name: string,
+	speed_up:       f32,
 }
 
+Main_Actor_State :: struct {
+	intersecting_intr, looking_at_intr: bool,
+}
+
+FXAA_Settings :: struct {
+	intensity:     f32, // = 0.3
+	shader:        r.Shader,
+	intensity_loc: i32,
+}
+
+render_target: r.RenderTexture2D
+font: r.Font
 game_config_data := #load("../config.toml")
 game_config: ^toml.Table
-
+fxaa: FXAA_Settings
 flags: bit_set[Flags]
 input: Input_State
-font: r.Font
 game_state: Game_State
 main_actor: ^Actor
 accumulated_time: f32
-fxaa_intensity: f32 = 0.3
-render_target: r.RenderTexture2D
-fxaa_shader: r.Shader
-fxaa_intensity_loc: i32
 
 debug_lines: [dynamic]DebugLine
 
@@ -41,6 +49,8 @@ interact_target_found: bool
 levels_datas: [dynamic]Level_Data
 all_actors: map[string]Actor
 level: Level
+main_actor_state: Main_Actor_State
+
 
 main :: proc() {
 	r.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_RESIZABLE})
@@ -49,15 +59,15 @@ main :: proc() {
 	r.SetTargetFPS(60)
 	r.DisableCursor()
 
-	fxaa_shader = r.LoadShader(nil, "assets/shaders/fxaa.fs")
-	defer r.UnloadShader(fxaa_shader)
+	fxaa.shader = r.LoadShader(nil, "assets/shaders/fxaa.fs")
+	defer r.UnloadShader(fxaa.shader)
 
-	fxaa_resolution_loc := r.GetShaderLocation(fxaa_shader, "resolution")
+	fxaa_resolution_loc := r.GetShaderLocation(fxaa.shader, "resolution")
 	resolution := [2]f32{f32(RENDER_WIDTH), f32(RENDER_HEIGHT)}
-	r.SetShaderValue(fxaa_shader, fxaa_resolution_loc, &resolution, .VEC2)
+	r.SetShaderValue(fxaa.shader, fxaa_resolution_loc, &resolution, .VEC2)
 
-	fxaa_intensity_loc = r.GetShaderLocation(fxaa_shader, "intensity")
-	r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
+	fxaa.intensity_loc = r.GetShaderLocation(fxaa.shader, "intensity")
+	r.SetShaderValue(fxaa.shader, fxaa.intensity_loc, &fxaa.intensity, .FLOAT)
 
 	font = r.LoadFont("assets/fonts/centurygothic/centurygothic_bold.ttf")
 	r.SetTextureFilter(font.texture, .BILINEAR)
@@ -74,7 +84,13 @@ main :: proc() {
 	// actor_update_pos_and_yaw(main_actor, vec3{-3, 0, -3}, 180)
 
 	for !r.WindowShouldClose() {
+		read_input()
 		update()
+
+		for accumulated_time >= DT {
+			fixed_update(DT)
+			accumulated_time -= DT
+		}
 		draw()
 
 		free_all(context.temp_allocator)
@@ -111,10 +127,10 @@ setup :: proc() {
 	}
 }
 
-update :: proc() {
-	//input
+read_input :: proc() {
 	input = get_player_input()
 
+	// debug input
 	if r.IsKeyReleased(.ONE) do flags ~= {.small_res}
 	if r.IsKeyReleased(.TWO) do flags ~= {.show_gizmos}
 	if r.IsKeyReleased(.THREE) {
@@ -122,69 +138,62 @@ update :: proc() {
 		if .lock_cursor in flags {r.DisableCursor()} else {r.EnableCursor()}
 	}
 	if r.IsKeyDown(.J) {
-		fxaa_intensity = r.Clamp(fxaa_intensity + 0.1, 0.0, 1.0)
-		r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
-		fmt.println("fxaa_intensity: ", fxaa_intensity)
+		fxaa.intensity = r.Clamp(fxaa.intensity + 0.1, 0.0, 1.0)
+		r.SetShaderValue(fxaa.shader, fxaa.intensity_loc, &fxaa.intensity, .FLOAT)
+		fmt.println("fxaa.intensity: ", fxaa.intensity)
 	}
 	if r.IsKeyDown(.K) {
-		fxaa_intensity = r.Clamp(fxaa_intensity - 0.1, 0.0, 1.0)
-		r.SetShaderValue(fxaa_shader, fxaa_intensity_loc, &fxaa_intensity, .FLOAT)
-		fmt.println("fxaa_intensity: ", fxaa_intensity)
+		fxaa.intensity = r.Clamp(fxaa.intensity - 0.1, 0.0, 1.0)
+		r.SetShaderValue(fxaa.shader, fxaa.intensity_loc, &fxaa.intensity, .FLOAT)
+		fmt.println("fxaa.intensity: ", fxaa.intensity)
 	}
-
-	if .paused in flags do return
-
-	main_actor_intersecting_intr: bool
-	interact_targets, main_actor_intersecting_intr = get_interactable_colliding_actor(
-		cur_level().interactables[:],
-		main_actor,
-	)
-
-	main_actor_is_looking_at_intr: bool
-	if len(&cur_level().intersected_interactables) > 0 {
-		_, main_actor_is_looking_at_intr = actor_is_looking_at_point(
-			main_actor,
-			get_interactable_center(&cur_level().intersected_interactables[0]),
-		)
-	}
-
-	interact_target_found = main_actor_intersecting_intr && main_actor_is_looking_at_intr
-
 
 	//fixed timestep (the "accumulator" pattern)
-	speed_up: f32 = 1
 	if r.IsKeyDown(.LEFT_SHIFT) {
-		speed_up = 2
+		game_state.speed_up = 2
+	} else {
+		game_state.speed_up = 1
+	}
+}
+
+update :: proc() {
+	if .paused in flags do return
+
+	// update interact targets
+	{
+		interact_targets, main_actor_state.intersecting_intr = get_interactable_colliding_actor(
+			cur_level().interactables[:],
+			main_actor,
+		)
+
+		if len(&cur_level().intersected_interactables) > 0 {
+			_, main_actor_state.looking_at_intr = actor_is_looking_at_point(
+				main_actor,
+				get_interactable_center(&cur_level().intersected_interactables[0]),
+			)
+		}
+
+		interact_target_found =
+			main_actor_state.intersecting_intr && main_actor_state.looking_at_intr
 	}
 
 	dt := r.Clamp(r.GetFrameTime(), 0, MAX_DT)
-	accumulated_time += dt * speed_up
+	accumulated_time += dt * game_state.speed_up
 
-	for accumulated_time >= DT {
-		update_cam(DT)
 
-		//update
-		for _, &actor in cur_level().actors {
-			actor_anim_update(&actor)
-		}
-
-		#partial switch main_actor.state {
-		case .IDLE:
-			handle_idle(main_actor, DT)
-		case .WALK:
-			handle_walk(main_actor, DT)
-		}
-
-		accumulated_time -= DT
-	}
-
-	#partial switch main_actor.state {
-	case .DIALOGUE:
-		handle_dialogue(main_actor)
-	case .INTERACT:
-		handle_interact(main_actor)
-	}
+	update_actor_events(main_actor)
 }
+
+fixed_update :: proc(DT: f32) {
+	update_cam(DT)
+
+	for _, &actor in cur_level().actors {
+		actor_anim_update(&actor)
+	}
+
+	update_actor_step(main_actor, DT)
+}
+
 
 draw :: proc() {
 	r.BeginDrawing()
@@ -199,7 +208,7 @@ draw :: proc() {
 			}
 			r.EndTextureMode()
 
-			r.BeginShaderMode(fxaa_shader)
+			r.BeginShaderMode(fxaa.shader)
 			{
 				r.DrawTexturePro(
 					texture = render_target.texture,

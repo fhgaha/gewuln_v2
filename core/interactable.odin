@@ -18,6 +18,9 @@ Door_Data :: struct {
 
 Stair_Data :: struct {
 	connected_level_name: string,
+	path_mesh_name:       string, // name of the path node in the glb, from extras["path"]
+	path:                 []vec3,
+	cur_path_point_idx:   int,
 }
 
 Interactable_Data_Union :: union {
@@ -58,12 +61,11 @@ interact :: proc() {
 	case Stair_Data:
 		assert(d.connected_level_name != "")
 		assert(strings.contains(strings.to_lower(d.connected_level_name), "room"))
+		assert(len(d.path) > 0)
 
-		
-
-		//play walk stair animation
-		//move up/down the stair
-		//move to next room
+	//play walk stair animation
+	//move up/down the stair
+	//move to next room
 	case:
 	// no action or default
 	}

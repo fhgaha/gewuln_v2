@@ -31,6 +31,7 @@ Actor_State :: enum {
 	WALK,
 	INTERACT,
 	DIALOGUE,
+	STAIR,
 }
 
 actor_state_strings := [Actor_State]string {
@@ -38,12 +39,14 @@ actor_state_strings := [Actor_State]string {
 	.WALK     = "walk",
 	.INTERACT = "interact",
 	.DIALOGUE = "dialogue",
+	.STAIR    = "stair",
 }
 
 Input_State :: struct {
-	move_dir:       f32, // -1 to 1 (Forward/Back)
-	turn_dir:       f32, // -1 to 1 (Left/Right)
-	wants_interact: bool,
+	move_dir:         f32, // -1 to 1 (Forward/Back)
+	turn_dir:         f32, // -1 to 1 (Left/Right)
+	wants_interact:   bool,
+	dialogue_advance: bool,
 }
 
 create_actors_from_toml :: proc(toml_table: ^toml.Table) -> (actors: map[string]Actor) {
@@ -210,6 +213,23 @@ actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
 //actor states
 //
 
+// per simulation step — continuous behavior
+update_actor_step :: proc(actor: ^Actor, dt: f32) {
+	#partial switch actor.state {
+		case .IDLE: handle_idle(actor, dt)
+		case .WALK: handle_walk(actor, dt)
+	}
+}
+
+// once per frame — input events & one-shot actions
+update_actor_events :: proc(actor: ^Actor) {
+	#partial switch actor.state {
+		case .INTERACT: handle_interact(actor)
+		case .DIALOGUE: handle_dialogue(actor)
+		case .STAIR: //handle_stair(actor, dt)
+	}
+}
+
 handle_idle :: proc(actor: ^Actor, dt: f32) {
 	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
 	actor_update_yaw(main_actor, yaw)
@@ -218,15 +238,14 @@ handle_idle :: proc(actor: ^Actor, dt: f32) {
 
 	// state transitions	
 	walk_cond := input.move_dir != 0
-
 	interact_cond := input.wants_interact && interact_target_found
 	switch {
-	case walk_cond:
-		actor.state = .WALK
-		fmt.println(actor.name, ": handle_walk")
-	case interact_cond:
-		actor.state = .INTERACT
-		fmt.println(actor.name, ": handle_interact")
+		case walk_cond:
+			actor.state = .WALK
+			fmt.println(actor.name, ": handle_walk")
+		case interact_cond:
+			actor.state = .INTERACT
+			fmt.println(actor.name, ": handle_interact")
 	}
 }
 
@@ -247,12 +266,12 @@ handle_walk :: proc(actor: ^Actor, dt: f32) {
 	interact_cond := interact_target_found && input.wants_interact
 	idle_cond := input.move_dir == 0
 	switch {
-	case interact_cond:
-		actor.state = .INTERACT
-		fmt.println(actor.name, ": handle_interact")
-	case idle_cond:
-		actor.state = .IDLE
-		fmt.println(actor.name, ": handle_idle")
+		case interact_cond:
+			actor.state = .INTERACT
+			fmt.println(actor.name, ": handle_interact")
+		case idle_cond:
+			actor.state = .IDLE
+			fmt.println(actor.name, ": handle_idle")
 	}
 }
 
@@ -317,24 +336,30 @@ handle_interact :: proc(actor: ^Actor) {
 		}
 	}
 
-	//state conditions	
-	is_dialogue: bool
+	//update actor state
+	is_dialogue, is_stair: bool
 	if interact_target_found {
 		_, is_dialogue = &interact_targets[0].data.(Dialogue_Data)
+		_, is_stair = &interact_targets[0].data.(Stair_Data)
 	}
 	dialogue_cond := animation_ended && interact_target_found && is_dialogue
 	walk_cond := animation_ended && input.move_dir != 0
 	idle_cond := animation_ended
+	walk_stairs_cond := is_stair
+
 	switch {
-	case dialogue_cond:
-		actor.state = .DIALOGUE
-		fmt.println(actor.name, ": handle_dialogue")
-	case walk_cond:
-		actor.state = .WALK
-		fmt.println(actor.name, ": handle_walk")
-	case idle_cond:
-		actor.state = .IDLE
-		fmt.println(actor.name, ": handle_idle")
+		case walk_stairs_cond:
+			actor.state = .STAIR
+			fmt.println(actor.name, ": handle_stair")
+		case dialogue_cond:
+			actor.state = .DIALOGUE
+			fmt.println(actor.name, ": handle_dialogue")
+		case walk_cond:
+			actor.state = .WALK
+			fmt.println(actor.name, ": handle_walk")
+		case idle_cond:
+			actor.state = .IDLE
+			fmt.println(actor.name, ": handle_idle")
 	}
 }
 
@@ -484,4 +509,27 @@ neck_target_rotation :: proc(local_dir: vec3) -> r.Quaternion {
 	clamped_dir.y = math.sin(pitch)
 	lookat := r.MatrixInvert(r.MatrixLookAt(vec3{0, 0, 0}, -clamped_dir, UP))
 	return r.QuaternionFromMatrix(lookat)
+}
+
+handle_stair :: proc(actor: ^Actor, data: Stair_Data) {
+	for data.cur_path_point_idx != len(data.path) {
+		cur_pt := data.path[data.cur_path_point_idx]
+		actor_walk_continuosly(actor, cur_pt, DT)
+	}
+}
+
+// run until arrived
+actor_walk_continuosly :: proc(actor: ^Actor, target: vec3, dt: f32) -> (arrived: bool) {
+	direction := target - actor.pos
+	distance := r.Vector3Length(direction)
+	ARRIVAL_THRESHOLD: f32 = 0.1
+
+	if distance < ARRIVAL_THRESHOLD {
+		actor.pos = target // snap to avoid jitter
+		actor.state = .IDLE
+		return true
+	}
+
+	actor_update_pos(actor, target)
+	return false
 }

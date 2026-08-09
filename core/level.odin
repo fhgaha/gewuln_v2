@@ -178,12 +178,12 @@ create_level_data :: proc(level_toml: ^toml.Table) -> Level_Data {
 	defer json.destroy_value(room_glb_json)
 	cameras_json, cameras_json_ok := room_glb_json.(json.Object)["cameras"].(json.Array)
 	assert(cameras_json_ok, "level must have a camera")
+	nodes := room_glb_json.(json.Object)["nodes"].(json.Array)
 
-	for node in room_glb_json.(json.Object)["nodes"].(json.Array) {
+	for node in nodes {
 		name_val := node.(json.Object)["name"]
 		if name_val != nil {
 			name := strings.to_lower(name_val.(json.String))
-
 			is_camera := cameras_json_ok && strings.contains(name, "camera")
 			if is_camera {
 				camera, is_cur := parse_camera3d_from_glb(node.(json.Object), &cameras_json)
@@ -200,12 +200,6 @@ create_level_data :: proc(level_toml: ^toml.Table) -> Level_Data {
 			is_interactable := strings.contains(name, "interactable")
 			if is_interactable {
 				intr := parse_interactable_from_glb(node.(json.Object), level_toml)
-
-				// _, intr_type_is_dialogue := intr.data.(Dialogue_Data)
-				// if intr_type_is_dialogue {
-				// 	intr.data = parse_dialogue_from_toml(level_toml)
-				// }
-
 				append(&interactables, intr)
 			}
 
@@ -252,6 +246,33 @@ create_level_data :: proc(level_toml: ^toml.Table) -> Level_Data {
 	for intr in interactables {
 		assert(intr.mesh_index != -1, "interactable not matched to any mesh")
 	}
+
+	// get path points, store them in stair data
+	for &intr in interactables {
+		stair_data, ok := &intr.data.(Stair_Data)
+		if !ok do continue
+
+		for path_node in nodes {
+			name, has := path_node.(json.Object)["name"].(json.String)
+
+			if has && name == stair_data.path_mesh_name {
+				path_points: [dynamic]vec3
+				parent_origin := parse_vec3_from_json(path_node.(json.Object), "translation")
+				
+				children, has_children := path_node.(json.Object)["children"].(json.Array)
+				if has_children {
+					for child_idx in children {
+						child := nodes[child_idx.(json.Integer)].(json.Object)
+						point := parse_vec3_from_json(child, "translation")
+						append(&path_points, parent_origin + point)
+					}
+					stair_data.path = path_points[:]
+				}
+			}
+		}
+
+	}
+
 
 	// level_actors: map[string]Actor
 	// for spawn in spawn_positions {

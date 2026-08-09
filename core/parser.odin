@@ -40,7 +40,17 @@ parse_interactable_data :: proc(
 	case "stair":
 		connected, ok := node["connected_level"].(json.String)
 		assert(ok)
-		return Stair_Data{connected_level_name = strings.clone(connected)}
+
+		path_mesh_name: string
+		if path_name, has_path := node["path"].(json.String); has_path {
+			path_mesh_name = strings.clone(path_name)
+		}
+		
+		return Stair_Data {
+			connected_level_name = strings.clone(connected),
+			path_mesh_name = path_mesh_name,
+			path = {},
+		}
 	case "dialogue":
 		return parse_dialogue_from_toml(level_toml)
 	case:
@@ -66,7 +76,7 @@ parse_dialogue_from_toml :: proc(level_table: ^toml.Table) -> Dialogue_Data {
 }
 
 parse_vec3_from_json :: proc(node: json.Object, key: string) -> vec3 {
-	tr := node["translation"]
+	tr := node[key]
 	vector: vec3
 	if tr != nil {
 		for i in 0 ..< 3 {
