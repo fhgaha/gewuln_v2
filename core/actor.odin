@@ -54,21 +54,44 @@ Actor_State_Transition :: struct {
 	cond:     proc() -> bool,
 }
 
-// actor_transitions := []Actor_State_Transition {
-// 	//from		to		   condition
-// 	{.IDLE, .WALK, proc() -> bool {return input.move_dir != 0}},
-// 	{.IDLE, .INTERACT, proc() -> bool {return input.wants_interact && interact_target_found}},
-// 	{.WALK, .INTERACT, proc() -> bool {return input.wants_interact && interact_target_found}},
-// 	{.WALK, .IDLE, proc() -> bool {return input.move_dir == 0}},
-// 	// {.INTERACT, .STAIR,    proc() -> bool { return interact_anim_done && stair_target_found }},
-// 	{.INTERACT, .DIALOGUE, proc() -> bool {
+actor_transitions := []Actor_State_Transition {
+	//from		to		   condition
+	{.IDLE, .WALK, proc() -> bool {return input.move_dir != 0}},
+	{.IDLE, .INTERACT, proc() -> bool {
+			return input.wants_interact && main_actor_state.interact_target_found}},
+	//
+	{.WALK, .INTERACT, proc() -> bool {
+			return input.wants_interact && main_actor_state.interact_target_found}},
+	{.WALK, .IDLE, proc() -> bool {return input.move_dir == 0}},
+	// {.INTERACT, .STAIR,    proc() -> bool { return interact_anim_done && stair_target_found }},
+	//
+	{.INTERACT, .DIALOGUE, proc() -> bool {
+			return(
+				main_actor_state.interact_anim_ended &&
+				main_actor_state.dialogue_target_found \
+			)}},
+	{.INTERACT, .WALK, proc() -> bool {
+			return main_actor_state.interact_anim_ended && input.move_dir != 0}},
+	{.INTERACT, .IDLE, proc() -> bool {
+			return main_actor_state.interact_anim_ended}},
+	//
+	{.DIALOGUE, .IDLE, proc() -> bool {return main_actor_state.dialog_ended}},
+}
 
+actor_set_state :: proc(actor: ^Actor, new: Actor_State) {
+	if actor.state == new do return
+	fmt.println(actor.name, "->", actor_state_strings[new])
+	actor.state = new
+}
 
-// 			return interact_anim_done && dialogue_target_found
-// 		}},
-// 	{.INTERACT, .WALK, proc() -> bool {return interact_anim_done && input.move_dir != 0}},
-// 	{.INTERACT, .IDLE, proc() -> bool {return interact_anim_done}},
-// }
+actor_transition_state :: proc(actor: ^Actor) {
+	for &t in actor_transitions {
+		if t.from == actor.state && t.cond() {
+			actor_set_state(actor, t.to)
+			return
+		}
+	}
+}
 
 create_actors_from_toml :: proc(toml_table: ^toml.Table) -> (actors: map[string]Actor) {
 	for a in toml_table["actors"].(^toml.List) {
@@ -252,22 +275,12 @@ update_actor_events :: proc(actor: ^Actor) {
 }
 
 handle_idle :: proc(actor: ^Actor, dt: f32) {
+	main_actor_state.dialog_ended = false
+
 	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
 	actor_update_yaw(main_actor, yaw)
 
 	play_anim(&actor.animator, .IDLE)
-
-	// state transitions	
-	walk_cond := input.move_dir != 0
-	interact_cond := input.wants_interact && main_actor_state.interact_target_found
-	switch {
-		case walk_cond:
-			actor.state = .WALK
-			fmt.println(actor.name, ": handle_walk")
-		case interact_cond:
-			actor.state = .INTERACT
-			fmt.println(actor.name, ": handle_interact")
-	}
 }
 
 
@@ -280,20 +293,6 @@ handle_walk :: proc(actor: ^Actor, dt: f32) {
 	desired_dpos: vec3 = input.move_dir * main_actor.speed * dt * actor_dir(main_actor)
 	dpos := resolve_slide(desired_dpos, main_actor.bounding_box, cur_level().walk_area_tris[:])
 	actor_update_pos(main_actor, main_actor.pos + dpos)
-
-
-	// state transitions
-
-	interact_cond := main_actor_state.interact_target_found && input.wants_interact
-	idle_cond := input.move_dir == 0
-	switch {
-		case interact_cond:
-			actor.state = .INTERACT
-			fmt.println(actor.name, ": handle_interact")
-		case idle_cond:
-			actor.state = .IDLE
-			fmt.println(actor.name, ": handle_idle")
-	}
 }
 
 
@@ -343,16 +342,15 @@ resolve_slide :: proc(desired: vec3, bb: r.BoundingBox, area: []tri3) -> (result
 
 handle_interact :: proc(actor: ^Actor) {
 	skip_interact_anim: bool = true
-	animation_ended: bool
 
 	if skip_interact_anim {
-		animation_ended = true
+		main_actor_state.interact_anim_ended = true
 		interact()
 	} else {
 		play_anim(&main_actor.animator, .INTERACT)
-		animation_ended = last_frame_reached(&main_actor.animator)
+		main_actor_state.interact_anim_ended = last_frame_reached(&main_actor.animator)
 
-		if animation_ended {
+		if main_actor_state.interact_anim_ended {
 			interact()
 		}
 	}
@@ -363,25 +361,11 @@ handle_interact :: proc(actor: ^Actor) {
 		_, is_dialogue = &cur_level().intersected_interactables[0].data.(Dialogue_Data)
 		_, is_stair = &cur_level().intersected_interactables[0].data.(Stair_Data)
 	}
-	dialogue_cond := animation_ended && main_actor_state.interact_target_found && is_dialogue
-	walk_cond := animation_ended && input.move_dir != 0
-	idle_cond := animation_ended
-	walk_stairs_cond := is_stair
-
-	switch {
-		case walk_stairs_cond:
-			actor.state = .STAIR
-			fmt.println(actor.name, ": handle_stair")
-		case dialogue_cond:
-			actor.state = .DIALOGUE
-			fmt.println(actor.name, ": handle_dialogue")
-		case walk_cond:
-			actor.state = .WALK
-			fmt.println(actor.name, ": handle_walk")
-		case idle_cond:
-			actor.state = .IDLE
-			fmt.println(actor.name, ": handle_idle")
-	}
+	dialogue_target_found :=
+		main_actor_state.interact_anim_ended &&
+		main_actor_state.interact_target_found &&
+		is_dialogue
+	main_actor_state.dialogue_target_found = dialogue_target_found
 }
 
 get_interactable_colliding_actor :: proc(
@@ -392,18 +376,18 @@ get_interactable_colliding_actor :: proc(
 	found: bool,
 ) {
 	tmp: [dynamic]Interactable
- 
+
 	for &intr in interactables {
 		mesh := get_interactable_mesh(&intr)
 		if r.CheckCollisionBoxes(actor.bounding_box, r.GetMeshBoundingBox(mesh)) {
 			append(&tmp, intr)
 		}
 	}
- 
+
 	// hand the buffer to the level (it's the owner now); free yesterday's first
 	delete(cur_level().intersected_interactables)
 	cur_level().intersected_interactables = tmp
- 
+
 	// same buffer as the field — valid until the NEXT call to this proc
 	intersected = tmp[:]
 	found = len(intersected) > 0
@@ -436,7 +420,6 @@ handle_dialogue :: proc(actor: ^Actor) {
 	}
 
 
-	switch_state_to_idle: bool
 	if r.IsKeyReleased(.SPACE) {
 		cur_dialogue.cur_idx += 1
 
@@ -449,12 +432,8 @@ handle_dialogue :: proc(actor: ^Actor) {
 			cur_level().cam = cur_dialogue.cashed_cam
 			cur_dialogue = {}
 
-			switch_state_to_idle = true
+			main_actor_state.dialog_ended = true
 		}
-	}
-
-	if switch_state_to_idle {
-		actor.state = .IDLE
 	}
 }
 

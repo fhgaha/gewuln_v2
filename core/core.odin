@@ -21,7 +21,7 @@ Game_State :: struct {
 }
 
 Main_Actor_State :: struct {
-	interact_target_found: bool,
+	interact_target_found, interact_anim_ended, dialogue_target_found, dialog_ended: bool,
 }
 
 FXAA_Settings :: struct {
@@ -181,6 +181,7 @@ update :: proc() {
 	}
 
 	update_actor_events(main_actor)
+	actor_transition_state(main_actor)
 }
 
 fixed_update :: proc(DT: f32) {
