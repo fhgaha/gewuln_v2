@@ -1,7 +1,7 @@
 package main
 
-import "core"
+import "gewuln"
 
 main :: proc() {
-	core.main()
+	gewuln.main()
 }
