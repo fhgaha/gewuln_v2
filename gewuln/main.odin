@@ -26,6 +26,7 @@ Main_Actor_State :: struct {
 	interact_anim_ended:       bool,
 	dialogue_target_found:     bool,
 	dialogue_ended:            bool,
+	stair_target_found:        bool,
 }
 
 FXAA_Settings :: struct {
@@ -120,7 +121,7 @@ setup :: proc() {
 	load_level(&game_state, first_level_name)
 
 	main_actor = &cur_level().actors["mona"]
-	
+
 	// searching neck bone index
 	for i in 0 ..< main_actor.model.boneCount {
 		bone_name := string(cast(cstring)&main_actor.model.bones[i].name[0])

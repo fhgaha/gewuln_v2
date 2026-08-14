@@ -71,7 +71,9 @@ actor_transitions := []Actor_State_Transition {
 		proc() -> bool {return input.wants_interact && main_actor_state.interact_target_found},
 	},
 	{.WALK, .IDLE, proc() -> bool {return input.move_dir == 0}},
-	// {.INTERACT, .STAIR,    proc() -> bool { return interact_anim_done && stair_target_found }},
+	{.INTERACT, .STAIR, proc() -> bool {
+			return main_actor_state.interact_anim_ended && main_actor_state.stair_target_found
+		}},
 	//
 	// INTERACT
 	{
@@ -285,7 +287,11 @@ update_actor_events :: proc(actor: ^Actor) {
 	#partial switch actor.state {
 		case .INTERACT: handle_interact(actor)
 		case .DIALOGUE: handle_dialogue(actor)
-		case .STAIR: //handle_stair(actor)
+		case .STAIR:
+			stair_data, ok := main_actor_state.intersected_interactables[0].data.(Stair_Data)
+			assert(ok)
+			main_actor_state.stair_target_found = ok
+			handle_stair(actor, stair_data)
 	}
 }
 
