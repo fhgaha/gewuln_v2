@@ -179,8 +179,9 @@ create_level_data :: proc(level_toml: ^toml.Table) -> Level_Data {
 		name_val := node.(json.Object)["name"]
 		if name_val != nil {
 			name := strings.to_lower(name_val.(json.String))
-			is_camera := cameras_json_ok && strings.contains(name, "camera")
-			if is_camera {
+
+			node_is_camera := cameras_json_ok && strings.contains(name, "camera")
+			if node_is_camera {
 				camera, is_cur := parse_camera3d_from_glb(node.(json.Object), &cameras_json)
 				if is_cur {
 					cur_cam_name = name
@@ -192,21 +193,21 @@ create_level_data :: proc(level_toml: ^toml.Table) -> Level_Data {
 				gameplay_cameras[name] = camera
 			}
 
-			is_interactable := strings.contains(name, "interactable")
-			if is_interactable {
+			node_is_interactable := strings.contains(name, "interactable")
+			if node_is_interactable {
 				intr := parse_interactable_from_glb(node.(json.Object), level_toml)
 				append(&interactables, intr)
 			}
 
-			is_walk_area := strings.contains(name, "walk_area")
-			if is_walk_area {
+			node_is_walk_area := strings.contains(name, "walk_area")
+			if node_is_walk_area {
 				mesh_idx_raw := node.(json.Object)["mesh"].(json.Integer)
 				walk_area_mesh_idx = i32(mesh_idx_raw)
 				extract_tris_from_mesh(&room.meshes[walk_area_mesh_idx], &walk_area_tris)
 			}
 
-			is_spawn_pos := strings.contains(name, "spawn_pos")
-			if is_spawn_pos {
+			node_is_spawn_pos := strings.contains(name, "spawn_pos")
+			if node_is_spawn_pos {
 				pos := parse_vec3_from_json(node.(json.Object), "translation")
 				rot := parse_quat_from_json(node.(json.Object), "rotation")
 				yaw := yaw_from_quat(rot)
@@ -239,33 +240,50 @@ create_level_data :: proc(level_toml: ^toml.Table) -> Level_Data {
 		}
 	}
 	for intr in interactables {
-		assert(intr.mesh_index != -1, "interactable not matched to any mesh")
+		fmt.assertf(intr.mesh_index != -1, "interactable '%s' not matched to any mesh", intr.name)
 	}
 
 	// get path points, store them in stair data
 	for &intr in interactables {
-		stair_data, ok := &intr.data.(Stair_Data)
-		if !ok do continue
+		// intr = [Interactable{
+		// 	name = "interactable.003",
+		// 	pos = [2.6296787, 1.06871939, -7.1350298],
+		// 	mesh_index = 7,
+		// 	data = Stair_Data{
+		// 		connected_level_name = "another_test_room",
+		// 		path_mesh_name = "path.001",
+		// 		path = [],
+		// 		cur_path_point_idx = 0
+		// 	}
+		// }]
+		path_points: [dynamic]vec3
+		if stair_data, ok := &intr.data.(Stair_Data); ok {
+			for path_node in nodes {
+				node_name, has := path_node.(json.Object)["name"].(json.String)
+				if has && node_name == stair_data.path_mesh_name {
+					parent_origin := parse_vec3_from_json(path_node.(json.Object), "translation")
 
-		for path_node in nodes {
-			name, has := path_node.(json.Object)["name"].(json.String)
-
-			if has && name == stair_data.path_mesh_name {
-				path_points: [dynamic]vec3
-				parent_origin := parse_vec3_from_json(path_node.(json.Object), "translation")
-
-				children, has_children := path_node.(json.Object)["children"].(json.Array)
-				if has_children {
-					for child_idx in children {
-						child := nodes[child_idx.(json.Integer)].(json.Object)
-						point := parse_vec3_from_json(child, "translation")
-						append(&path_points, parent_origin + point)
+					if children_indeces, ok := path_node.(json.Object)["children"].(json.Array);
+					   ok {
+						// children = [[15, 16, 17]]
+						for child_idx in children_indeces {
+							child := nodes[child_idx.(json.Integer)].(json.Object)
+							point := parse_vec3_from_json(child, "translation")
+							point += parent_origin
+							append(&path_points, point)
+						}
+						stair_data.path = path_points[:]
 					}
-					stair_data.path = path_points[:]
 				}
 			}
-		}
 
+			fmt.assertf(
+				len(stair_data.path) > 0,
+				"stair '%s': path node '%s' not found or empty",
+				intr.name,
+				stair_data.path_mesh_name,
+			)
+		}
 	}
 
 

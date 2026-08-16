@@ -22,11 +22,19 @@ Game_State :: struct {
 
 Main_Actor_State :: struct {
 	intersected_interactables: [dynamic]Interactable,
-	interact_target_found:     bool,
 	interact_anim_ended:       bool,
-	dialogue_target_found:     bool,
-	dialogue_ended:            bool,
-	stair_target_found:        bool,
+	cur_interactable:          struct {
+		interactable_name:     string,
+		interact_target_found: bool,
+	},
+	dialogue_state:            struct {
+		dialogue_target_found: bool,
+		dialogue_ended:        bool,
+	},
+	stair_state:               struct {
+		stair_target_found: bool,
+		cur_path_point_idx: int,
+	},
 }
 
 FXAA_Settings :: struct {
@@ -181,7 +189,8 @@ update :: proc() {
 			)
 		}
 
-		main_actor_state.interact_target_found = intersecting_intr && looking_at_intr
+		main_actor_state.cur_interactable.interact_target_found =
+			intersecting_intr && looking_at_intr
 	}
 
 	update_actor_events(main_actor)

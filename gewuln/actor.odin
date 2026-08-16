@@ -61,18 +61,18 @@ actor_transitions := []Actor_State_Transition {
 	{
 		.IDLE,
 		.INTERACT,
-		proc() -> bool {return input.wants_interact && main_actor_state.interact_target_found},
+		proc() -> bool {return input.wants_interact && main_actor_state.cur_interactable.interact_target_found},
 	},
 	//
 	// WALK
 	{
 		.WALK,
 		.INTERACT,
-		proc() -> bool {return input.wants_interact && main_actor_state.interact_target_found},
+		proc() -> bool {return input.wants_interact && main_actor_state.cur_interactable.interact_target_found},
 	},
 	{.WALK, .IDLE, proc() -> bool {return input.move_dir == 0}},
 	{.INTERACT, .STAIR, proc() -> bool {
-			return main_actor_state.interact_anim_ended && main_actor_state.stair_target_found
+			return main_actor_state.interact_anim_ended && main_actor_state.stair_state.stair_target_found
 		}},
 	//
 	// INTERACT
@@ -81,7 +81,7 @@ actor_transitions := []Actor_State_Transition {
 		.DIALOGUE,
 		proc() -> bool {return(
 				main_actor_state.interact_anim_ended &&
-				main_actor_state.dialogue_target_found \
+				main_actor_state.dialogue_state.dialogue_target_found \
 			)},
 	},
 	{
@@ -92,7 +92,7 @@ actor_transitions := []Actor_State_Transition {
 	{.INTERACT, .IDLE, proc() -> bool {return main_actor_state.interact_anim_ended}},
 	//
 	// DIALOGUE
-	{.DIALOGUE, .IDLE, proc() -> bool {return main_actor_state.dialogue_ended}},
+	{.DIALOGUE, .IDLE, proc() -> bool {return main_actor_state.dialogue_state.dialogue_ended}},
 }
 
 actor_set_state :: proc(actor: ^Actor, new: Actor_State) {
@@ -287,16 +287,12 @@ update_actor_events :: proc(actor: ^Actor) {
 	#partial switch actor.state {
 		case .INTERACT: handle_interact(actor)
 		case .DIALOGUE: handle_dialogue(actor)
-		case .STAIR:
-			stair_data, ok := main_actor_state.intersected_interactables[0].data.(Stair_Data)
-			assert(ok)
-			main_actor_state.stair_target_found = ok
-			handle_stair(actor, stair_data)
+		case .STAIR: handle_stair(actor)
 	}
 }
 
 handle_idle :: proc(actor: ^Actor, dt: f32) {
-	main_actor_state.dialogue_ended = false
+	main_actor_state.dialogue_state.dialogue_ended = false
 
 	yaw := main_actor.yaw + input.turn_dir * main_actor.rot_speed * dt
 	actor_update_yaw(main_actor, yaw)
@@ -378,15 +374,12 @@ handle_interact :: proc(actor: ^Actor) {
 
 	//update actor state
 	is_dialogue, is_stair: bool
-	if main_actor_state.interact_target_found {
+	if main_actor_state.cur_interactable.interact_target_found {
 		_, is_dialogue = &main_actor_state.intersected_interactables[0].data.(Dialogue_Data)
 		_, is_stair = &main_actor_state.intersected_interactables[0].data.(Stair_Data)
 	}
-	dialogue_target_found :=
-		main_actor_state.interact_anim_ended &&
-		main_actor_state.interact_target_found &&
-		is_dialogue
-	main_actor_state.dialogue_target_found = dialogue_target_found
+	main_actor_state.dialogue_state.dialogue_target_found = main_actor_state.interact_anim_ended && is_dialogue
+	main_actor_state.stair_state.stair_target_found = is_stair
 }
 
 get_interactable_colliding_actor :: proc(
@@ -453,7 +446,7 @@ handle_dialogue :: proc(actor: ^Actor) {
 			cur_level().cam = cur_dialogue.cashed_cam
 			cur_dialogue = {}
 
-			main_actor_state.dialogue_ended = true
+			main_actor_state.dialogue_state.dialogue_ended = true
 		}
 	}
 }
@@ -522,25 +515,46 @@ neck_target_rotation :: proc(local_dir: vec3) -> r.Quaternion {
 	return r.QuaternionFromMatrix(lookat)
 }
 
-handle_stair :: proc(actor: ^Actor, data: Stair_Data) {
-	for data.cur_path_point_idx != len(data.path) {
-		cur_pt := data.path[data.cur_path_point_idx]
-		actor_walk_continuosly(actor, cur_pt, DT)
+handle_stair :: proc(actor: ^Actor) {
+	assert(main_actor_state.stair_state.stair_target_found)
+	intr := main_actor_state.intersected_interactables[0]
+	data, ok := intr.data.(Stair_Data)
+	assert(ok)
+
+	// restart progress when the player starts climbing a different stair.
+	// interactable_name is set here (not on collision) so switching stairs
+	// is detected reliably — colliding with a stair always matches its own name.
+	if main_actor_state.cur_interactable.interactable_name != intr.name {
+		main_actor_state.cur_interactable.interactable_name = intr.name
+		main_actor_state.stair_state.cur_path_point_idx = 0
+	}
+
+	if main_actor_state.stair_state.cur_path_point_idx < len(data.path) {
+		cur_pt := data.path[main_actor_state.stair_state.cur_path_point_idx]
+		arrived := actor_walk_continuously(actor, cur_pt, DT)
+		if arrived {
+			main_actor_state.stair_state.cur_path_point_idx += 1
+		}
+	} else {
+		// path fully walked — back to idle, reset progress for next time
+		main_actor_state.stair_state.cur_path_point_idx = 0
+		actor_set_state(actor, .IDLE)
 	}
 }
 
 // run until arrived
-actor_walk_continuosly :: proc(actor: ^Actor, target: vec3, dt: f32) -> (arrived: bool) {
+actor_walk_continuously :: proc(actor: ^Actor, target: vec3, dt: f32) -> (arrived: bool) {
 	direction := target - actor.pos
 	distance := r.Vector3Length(direction)
 	ARRIVAL_THRESHOLD: f32 = 0.1
 
+	next_pt := actor.pos + r.Vector3Normalize(direction) * main_actor.speed * dt
+
 	if distance < ARRIVAL_THRESHOLD {
 		actor.pos = target // snap to avoid jitter
-		actor.state = .IDLE
 		return true
+	} else {
+		actor_update_pos_and_yaw(actor, next_pt, 0)
+		return false
 	}
-
-	actor_update_pos(actor, target)
-	return false
 }
