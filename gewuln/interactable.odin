@@ -44,7 +44,7 @@ Interactables_Naming_Table :: [?]struct {
 
 
 interact :: proc() {
-	switch d in main_actor_state.intersected_interactables[0].data {
+	switch d in main_actor_ctx.intersected_interactables[0].data {
 	case Door_Data:
 		assert(d.connected_level_name != "")
 		assert(strings.contains(strings.to_lower(d.connected_level_name), "room"))

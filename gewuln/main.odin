@@ -20,12 +20,16 @@ Game_State :: struct {
 	speed_up:       f32,
 }
 
-Main_Actor_State :: struct {
-	intersected_interactables: [dynamic]Interactable,
-	interact_anim_ended:       bool,
+Main_Actor_Context :: struct {
+	intersected_interactables: [dynamic]^Interactable,
 	cur_interactable:          struct {
 		interactable_name:     string,
 		interact_target_found: bool,
+	},
+	idle_state:                struct{},
+	walk_state:                struct{},
+	interact_state:            struct {
+		interact_anim_ended: bool,
 	},
 	dialogue_state:            struct {
 		dialogue_target_found: bool,
@@ -60,7 +64,7 @@ debug_lines: [dynamic]DebugLine
 levels_datas: [dynamic]Level_Data
 all_actors: map[string]Actor
 level: Level
-main_actor_state: Main_Actor_State
+main_actor_ctx: Main_Actor_Context
 
 
 main :: proc() {
@@ -174,7 +178,7 @@ update :: proc() {
 
 	// update interact targets
 	{
-		intersected_interactables: []Interactable
+		intersected_interactables: []^Interactable
 		intersecting_intr: bool
 		intersected_interactables, intersecting_intr = get_interactable_colliding_actor(
 			cur_level().interactables[:],
@@ -185,11 +189,11 @@ update :: proc() {
 		if intersecting_intr {
 			_, looking_at_intr = actor_is_looking_at_point(
 				main_actor,
-				get_interactable_center(&intersected_interactables[0]),
+				get_interactable_center(intersected_interactables[0]),
 			)
 		}
 
-		main_actor_state.cur_interactable.interact_target_found =
+		main_actor_ctx.cur_interactable.interact_target_found =
 			intersecting_intr && looking_at_intr
 	}
 

@@ -62,10 +62,10 @@ actor_anim_update :: proc(actor: ^Actor) {
 			}
 		}
 
-		if len(main_actor_state.intersected_interactables) > 0 {
+		if len(main_actor_ctx.intersected_interactables) > 0 {
 			target_dir_quat, is_looking = actor_is_looking_at_point(
 				actor,
-				get_interactable_center(&main_actor_state.intersected_interactables[0]),
+				get_interactable_center(main_actor_ctx.intersected_interactables[0]),
 			)
 		}
 	}
