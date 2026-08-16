@@ -5,6 +5,12 @@ import "core:fmt"
 import "core:strings"
 import r "vendor:raylib"
 
+FXAA_Settings :: struct {
+	intensity:     f32, // = 0.3
+	shader:        r.Shader,
+	intensity_loc: i32,
+}
+
 Flags :: enum {
 	small_res,
 	show_gizmos,
@@ -36,15 +42,10 @@ Main_Actor_Context :: struct {
 		dialogue_ended:        bool,
 	},
 	stair_state:               struct {
+		stair_interactable: ^Interactable, //storing cause actor leaves it as he walks
 		stair_target_found: bool,
 		cur_path_point_idx: int,
 	},
-}
-
-FXAA_Settings :: struct {
-	intensity:     f32, // = 0.3
-	shader:        r.Shader,
-	intensity_loc: i32,
 }
 
 render_target: r.RenderTexture2D
