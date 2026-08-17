@@ -361,7 +361,7 @@ draw_cameras :: proc() {
 }
 
 draw_dialogue :: proc() {
-	if main_actor.state != .DIALOGUE do return
+	if main_actor.state.type != .DIALOGUE do return
 	if len(cur_dialogue.lines) == 0 do return
 	w := WINDOW_WIDTH; h := WINDOW_HEIGHT
 	fs_name := FONT_SIZE_ACTOR_NAME; fs_line := FONT_SIZE_ACTOR_LINE

@@ -57,7 +57,7 @@ interact :: proc() {
 	case Dialogue_Data:
 		// TODO mock
 		second_actor := &cur_level().actors["cleaner_a"]
-		main_actor.state = .DIALOGUE
+		actor_set_state(main_actor, .DIALOGUE)
 	case Stair_Data:
 		assert(d.connected_level_name != "")
 		assert(strings.contains(strings.to_lower(d.connected_level_name), "room"))

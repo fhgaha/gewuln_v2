@@ -115,7 +115,7 @@ create_actor :: proc(actor_toml: ^toml.Table) -> (actor: Actor, ok: bool) {
 		model                 = actor_model,
 		bounding_box_original = bb,
 		bounding_box          = bb,
-		state                 = .IDLE,
+		state                 = actor_states[.IDLE],
 		animator              = animator,
 		neck_bone_index       = -1,
 		neck_current_delta    = r.Quaternion(1),
@@ -199,7 +199,7 @@ actor_update_yaw :: proc(actor: ^Actor, yaw: f32) {
 
 // per simulation step — continuous behavior
 update_actor_step :: proc(actor: ^Actor, dt: f32) {
-	#partial switch actor.state {
+	#partial switch actor.state.type {
 		case .IDLE: handle_idle(actor, dt)
 		case .WALK: handle_walk(actor, dt)
 	}
@@ -207,7 +207,7 @@ update_actor_step :: proc(actor: ^Actor, dt: f32) {
 
 // once per frame — input events & one-shot actions
 update_actor_events :: proc(actor: ^Actor) {
-	#partial switch actor.state {
+	#partial switch actor.state.type {
 		case .INTERACT: handle_interact(actor)
 		case .DIALOGUE: handle_dialogue(actor)
 		case .STAIR: handle_stair(actor)

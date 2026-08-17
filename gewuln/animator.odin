@@ -25,8 +25,8 @@ fill_animation_names :: proc(animator: ^Animator) {
 	}
 }
 
-play_anim :: proc(animator: ^Animator, state: Actor_State) {
-	name: string = actor_state_strings[state]
+play_anim :: proc(animator: ^Animator, state: Actor_State_Type) {
+	name: string = Actor_State_Type_strings[state]
 	already_playing := animator.anim_idx == animator.anims_by_names[name]
 	if already_playing {
 		return
