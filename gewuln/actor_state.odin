@@ -25,16 +25,16 @@ Actor_State_Type_strings := [Actor_State_Type]string {
 	.STAIR    = "stair",
 }
 
-Actor_State :: struct {
-	type:        Actor_State_Type,
-	transitions: []Actor_State_Transition,
-	on_enter:    proc(),
-	on_exit:     proc(),
-}
-
 Actor_State_Transition :: struct {
 	from, to: Actor_State_Type,
 	cond:     proc() -> bool,
+}
+
+Actor_State :: struct {
+	type:         Actor_State_Type,
+	transitions:  []Actor_State_Transition,
+	on_enter:     proc(),
+	on_exit:      proc(),
 }
 
 actor_states := [Actor_State_Type]Actor_State {
@@ -93,22 +93,27 @@ actor_states := [Actor_State_Type]Actor_State {
 						input.move_dir != 0 \
 					)},
 			},
-			{.INTERACT, .IDLE, proc() -> bool {return main_actor_ctx.interact_state.interact_anim_ended}},
+			{
+				.INTERACT,
+				.IDLE,
+				proc() -> bool {return main_actor_ctx.interact_state.interact_anim_ended},
+			},
 		},
 	},
 	.DIALOGUE = {
 		type = .DIALOGUE,
 		transitions = []Actor_State_Transition {
-			{.DIALOGUE, .IDLE, proc() -> bool {return main_actor_ctx.dialogue_state.dialogue_ended}},
+			{
+				.DIALOGUE,
+				.IDLE,
+				proc() -> bool {return main_actor_ctx.dialogue_state.dialogue_ended},
+			},
 		},
 	},
-	.STAIR = {
-		type = .STAIR,
-		on_enter = proc() {
+	.STAIR = {type = .STAIR, on_enter = proc() {
 			main_actor_ctx.stair_state.stair_interactable =
 				main_actor_ctx.intersected_interactables[0]
-		},
-	},
+		}},
 }
 
 actor_transition_state :: proc(actor: ^Actor) {

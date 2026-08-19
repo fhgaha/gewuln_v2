@@ -453,6 +453,8 @@ handle_stair :: proc(actor: ^Actor) {
 	data, ok := intr.data.(Stair_Data)
 	assert(ok)
 
+	play_anim(&actor.animator, .WALK)
+
 	// restart progress when the player starts climbing a different stair.
 	// interactable_name is set here (not on collision) so switching stairs
 	// is detected reliably — colliding with a stair always matches its own name.
@@ -486,7 +488,8 @@ actor_walk_continuously :: proc(actor: ^Actor, target: vec3, dt: f32) -> (arrive
 		actor.pos = target // snap to avoid jitter
 		return true
 	} else {
-		actor_update_pos_and_yaw(actor, next_pt, 0)
+		yaw: f32 = yaw_from_direction(direction)
+		actor_update_pos_and_yaw(actor, next_pt, yaw)
 		return false
 	}
 }

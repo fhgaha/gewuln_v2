@@ -78,6 +78,10 @@ yaw_from_quat :: proc(q: r.Quaternion) -> f32 {
 	return yaw_from_transform(r.QuaternionToMatrix(q))
 }
 
+yaw_from_direction :: proc(direction: vec3) -> f32 {
+	return f32(math.atan2(f64(direction.x), f64(direction.z)) * r.RAD2DEG)
+}
+
 square_points_2d :: proc(min, max: vec2) -> [4]vec2 {
 	return {
 		min, // bottom-left
