@@ -27,21 +27,22 @@ Game_State :: struct {
 }
 
 Main_Actor_Context :: struct {
-	intersected_interactables: [dynamic]^Interactable,
-	cur_interactable:          struct {
+	intersected_interactables:         [dynamic]^Interactable,
+	rotate_neck_while_looking_at_intr: bool,
+	cur_interactable:                  struct {
 		interactable_name:     string,
 		interact_target_found: bool,
 	},
-	idle_state:                struct{},
-	walk_state:                struct{},
-	interact_state:            struct {
+	idle_state:                        struct{},
+	walk_state:                        struct{},
+	interact_state:                    struct {
 		interact_anim_ended: bool,
 	},
-	dialogue_state:            struct {
+	dialogue_state:                    struct {
 		dialogue_target_found: bool,
 		dialogue_ended:        bool,
 	},
-	stair_state:               struct {
+	stair_state:                       struct {
 		stair_interactable: ^Interactable, //storing cause actor leaves it as he walks
 		stair_target_found: bool,
 		cur_path_point_idx: int,
@@ -57,6 +58,7 @@ flags: bit_set[Flags]
 input: Input_State
 game_state: Game_State
 main_actor: ^Actor
+main_actor_ctx: Main_Actor_Context
 accumulated_time: f32
 
 debug_lines: [dynamic]DebugLine
@@ -65,7 +67,6 @@ debug_lines: [dynamic]DebugLine
 levels_datas: [dynamic]Level_Data
 all_actors: map[string]Actor
 level: Level
-main_actor_ctx: Main_Actor_Context
 
 
 main :: proc() {
@@ -134,6 +135,8 @@ setup :: proc() {
 	load_level(&game_state, first_level_name)
 
 	main_actor = &cur_level().actors["mona"]
+
+	main_actor_ctx.rotate_neck_while_looking_at_intr = true
 
 	// searching neck bone index
 	for i in 0 ..< main_actor.model.boneCount {

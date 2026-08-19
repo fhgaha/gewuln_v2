@@ -31,10 +31,10 @@ Actor_State_Transition :: struct {
 }
 
 Actor_State :: struct {
-	type:         Actor_State_Type,
-	transitions:  []Actor_State_Transition,
-	on_enter:     proc(),
-	on_exit:      proc(),
+	type:        Actor_State_Type,
+	transitions: []Actor_State_Transition,
+	on_enter:    proc(),
+	on_exit:     proc(),
 }
 
 actor_states := [Actor_State_Type]Actor_State {
@@ -111,8 +111,11 @@ actor_states := [Actor_State_Type]Actor_State {
 		},
 	},
 	.STAIR = {type = .STAIR, on_enter = proc() {
+			main_actor_ctx.rotate_neck_while_looking_at_intr = false
 			main_actor_ctx.stair_state.stair_interactable =
 				main_actor_ctx.intersected_interactables[0]
+		}, on_exit = proc() {
+			main_actor_ctx.rotate_neck_while_looking_at_intr = true
 		}},
 }
 
