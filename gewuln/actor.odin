@@ -469,11 +469,7 @@ handle_stair :: proc(actor: ^Actor) {
 		if arrived {
 			main_actor_ctx.stair_state.cur_path_point_idx += 1
 		}
-	} else {
-		// path fully walked — back to idle, reset progress for next time
-		main_actor_ctx.stair_state.cur_path_point_idx = 0
-		actor_set_state(actor, .IDLE)
-	}
+	} 
 }
 
 // run until arrived

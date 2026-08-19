@@ -110,13 +110,31 @@ actor_states := [Actor_State_Type]Actor_State {
 			},
 		},
 	},
-	.STAIR = {type = .STAIR, on_enter = proc() {
+	.STAIR = {
+		type = .STAIR,
+		on_enter = proc() {
 			main_actor_ctx.rotate_neck_while_looking_at_intr = false
 			main_actor_ctx.stair_state.stair_interactable =
 				main_actor_ctx.intersected_interactables[0]
-		}, on_exit = proc() {
+		},
+		transitions = []Actor_State_Transition {
+			{
+				.STAIR,
+				.IDLE,
+				proc() -> bool {
+					return(
+						main_actor_ctx.stair_state.cur_path_point_idx >=
+						len(main_actor_ctx.stair_state.stair_interactable.data.(Stair_Data).path) \
+					)
+					//
+				},
+			},
+		},
+		on_exit = proc() {
 			main_actor_ctx.rotate_neck_while_looking_at_intr = true
-		}},
+			main_actor_ctx.stair_state.cur_path_point_idx = 0
+		},
+	},
 }
 
 actor_transition_state :: proc(actor: ^Actor) {
