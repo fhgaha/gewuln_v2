@@ -131,8 +131,13 @@ actor_states := [Actor_State_Type]Actor_State {
 			},
 		},
 		on_exit = proc() {
+			// reset
 			main_actor_ctx.rotate_neck_while_looking_at_intr = true
 			main_actor_ctx.stair_state.cur_path_point_idx = 0
+
+			data, ok := main_actor_ctx.stair_state.stair_interactable.data.(Stair_Data)
+			assert(ok)
+			change_level(&game_state, data.connected_level_name)
 		},
 	},
 }

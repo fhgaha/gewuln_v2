@@ -50,6 +50,8 @@ load_level :: proc(state: ^Game_State, name: string) {
 			panic(fmt.tprintf("No such actor '%s'!", spawn.actor_name))
 		}
 	}
+
+	main_actor = &cur_level().actors["mona"]
 }
 
 unload_level :: proc(lvl: ^Level) {
@@ -69,6 +71,8 @@ unload_level :: proc(lvl: ^Level) {
 }
 
 change_level :: proc(state: ^Game_State, next: string) {
+	assert(next != "")
+
 	unload_level(cur_level())
 	load_level(state, next)
 }
