@@ -28,7 +28,8 @@ Actor_Spawn_Placement :: struct {
 load_level :: proc(state: ^Game_State, name: string) {
 	state.cur_level_name = name
 
-	next_lvl_data: Level_Data; found: bool
+	next_lvl_data: Level_Data
+	found: bool
 	for lvl_data in levels_datas {
 		if lvl_data.name == name {
 			next_lvl_data = lvl_data
@@ -52,6 +53,9 @@ load_level :: proc(state: ^Game_State, name: string) {
 	}
 
 	main_actor = &cur_level().actors["mona"]
+	for actor_name, &actor in level.actors {
+		actor_update_pos(&actor, actor.pos)
+	}
 }
 
 unload_level :: proc(lvl: ^Level) {
@@ -63,10 +67,6 @@ unload_level :: proc(lvl: ^Level) {
 	// delete(lvl.walk_area_mesh_idx)	// removed on exit or Level struct delete
 	err = delete(lvl.walk_area_tris); assert(err == .None)
 	err = delete(lvl.interactables); assert(err == .None)
-
-	// for _, &actor in lvl.actors {
-	// 	delete_actor(&actor)
-	// }
 	err = delete(lvl.actors); assert(err == .None)
 }
 
